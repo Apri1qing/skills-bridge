@@ -1,0 +1,10 @@
+{
+  "name": "skills-bridge",
+  "description": "One source of truth for skills across agents: sync plugin skills to the shared ~/.agents directory, and one-command maintenance for the whole skills ecosystem.",
+  "version": "1.0.0",
+  "author": {
+    "name": "Apri1qing",
+    "url": "https://github.com/Apri1qing"
+  },
+  "license": "MIT"
+}

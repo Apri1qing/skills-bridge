@@ -1,0 +1,21 @@
+{
+  "name": "skills-bridge",
+  "description": "One source of truth for skills across agents: sync Claude plugin skills to ~/.agents/skills/, and one-command maintenance for the whole skills ecosystem.",
+  "owner": {
+    "name": "Apri1qing",
+    "url": "https://github.com/Apri1qing"
+  },
+  "plugins": [
+    {
+      "name": "skills-bridge",
+      "description": "One source of truth for skills across agents: sync plugin skills to the shared ~/.agents directory, and one-command maintenance for the whole skills ecosystem.",
+      "version": "1.0.0",
+      "source": "./",
+      "author": {
+        "name": "Apri1qing",
+        "url": "https://github.com/Apri1qing"
+      },
+      "license": "MIT"
+    }
+  ]
+}
