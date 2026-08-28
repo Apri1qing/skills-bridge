@@ -58,8 +58,15 @@ bash <skill-dir>/scripts/sync-skills.sh --force      # 用户明确要求覆盖�
 功能型插件的 hooks/commands/agents 搬不动，唯一途径是在其他 agent 侧装等价物。对本次出现的每个 SKIP-PLUGIN 插件：
 
 1. **探测本地在装的 agent**：用 `command -v` 逐个检查 codex、cursor、gemini、opencode、pi 等常见 agent CLI，只为实际装了的找等价物
-2. **查等价装法**：用 WebSearch 按「插件名 + agent 名」查该插件在各在装 agent 侧的官方/社区安装方式（不少插件仓库本身就带 `gemini-extension.json`、`opencode.json` 等多端配置，优先查插件源仓库）
-3. **确认后安装**：把查到的安装命令列给用户，逐条确认后执行；查不到的简要说明该 agent 无对应物，不猜命令。已装过的（如上次运行已安装）跳过
+2. **查等价装法**：用 WebSearch 按「插件名 + agent 名」查该插件在各在装 agent 侧的官方/社区安装方式（不少插件仓库本身就带 `gemini-extension.json`、`opencode.json` 等多端配置，优先查插件源仓库）。只认全局安装；项目级装法（如拷规则进项目 `.cursor/rules/`）不算等价物，该 agent 判为无对应物
+3. **跳过已装**：安装前对每个 agent 做全局存在性检查，命中即跳过。各 agent 的检测命令查其全局事实源：
+   - codex：`grep -i '<插件名>' ~/.codex/config.toml`
+   - opencode：`grep -i '<插件名>' ~/.config/opencode/opencode.json`；本地插件另查 `ls ~/.config/opencode/plugins/`
+   - cursor：`find ~/.cursor/plugins/cache ~/.cursor/plugins/local -maxdepth 2 -iname '*<插件名>*' 2>/dev/null`（目录结构 `cache/<marketplace>/<插件名>`）
+   - 其他 agent：探测到后查其全局配置文件
+
+   存在性检查禁止接 `head`/`tail`——截断输出只能证明「看到了这些」，证明不了「没有更多」
+4. **确认后安装**：把查到的安装命令列给用户，逐条确认后执行；查不到的简要说明该 agent 无对应物，不猜命令
 
 ### 验证
 
