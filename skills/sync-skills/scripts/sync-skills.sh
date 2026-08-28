@@ -1,12 +1,13 @@
 #!/bin/bash
 # 双向同步：
-#   正向 Claude Code 插件 skills → ~/.agents/skills/（拷贝 + marker + 功能型排除 + 孤儿清理）
+#   正向 Claude Code 插件 skills → ~/.agents/skills/（拷贝 + marker + 版本未变跳过 + 功能型排除 + 孤儿清理）
 #   反向 ~/.agents/skills/ → ~/.claude/skills/（软链入口 + 去重 + 清断链）
 # sync-skills skill 的底层实现，由该 skill 手动触发。
 # 用法: sync-skills.sh [--force] [--dry-run] [list]
 AGENTS_SKILLS="$HOME/.agents/skills"
 CLAUDE_PLUGINS="$HOME/.claude/plugins/cache"
 MARKER_FILE=".synced-from-plugin"
+STATE_FILE=".synced-plugin-state"
 FORCE_SYNC=false
 DRY_RUN=false
 LIST_ONLY=false
@@ -23,7 +24,18 @@ mkdir -p "$AGENTS_SKILLS"
 # /plugin uninstall 只从 installed_plugins.json 移除条目，不删 cache 目录；
 # 故以 manifest 的 installPath 判断插件是否仍安装：cache 中已卸载插件的残留既不同步，受管副本也要清理。
 manifest="$HOME/.claude/plugins/installed_plugins.json"
-installed_paths=$(grep -o '"installPath": *"[^"]*"' "$manifest" 2>/dev/null | cut -d'"' -f4)
+# installPath 与 (version, gitCommitSha) 成对提取（version 缺失记 unknown，sha 缺失记空），
+# 供安装判断与同步跳过比对共用
+installed_pv=$(python3 -c "
+import json
+try:
+    d = json.load(open('$manifest'))
+    for entries in d.get('plugins', {}).values():
+        for e in entries:
+            print(e.get('installPath', '') + '\t' + e.get('version', 'unknown') + '\t' + e.get('gitCommitSha', ''))
+except Exception:
+    pass" 2>/dev/null)
+installed_paths=$(cut -f1 <<< "$installed_pv")
 
 is_installed() { # $1: cache 下的路径；所属插件仍在安装列表 → 0
     # manifest 不可读（空列表）时保守视为已安装，退回目录存在性判断，避免误清全部受管副本
@@ -33,6 +45,14 @@ is_installed() { # $1: cache 下的路径；所属插件仍在安装列表 → 0
         case "$1" in "$p"|"$p"/*) return 0 ;; esac
     done <<< "$installed_paths"
     return 1
+}
+
+state_of() { # $1: installPath → 插件指纹 "version|sha"；查不到记 "unknown|"
+    local p v s
+    while IFS=$'\t' read -r p v s; do
+        [ "$p" = "$1" ] && { echo "$v|$s"; return; }
+    done <<< "$installed_pv"
+    echo "unknown|"
 }
 
 # list 模式：列出受管副本及来源
@@ -88,6 +108,16 @@ while IFS= read -r p; do [ -n "$p" ] && find "$p" -name "SKILL.md" -path "*/skil
         continue
     fi
 
+    # 同步跳过判据：插件指纹 "version|gitCommitSha"，与副本记录完全一致才跳过。
+    # 版本或 sha 任一变化 → 重拷；两者都缺（unknown|）→ 没有可用判据，每次重拷。
+    # sha 是 git 内容指纹，补版本号的盲区：作者改内容忘 bump 版本时 sha 仍会变。
+    plugin_state=$(state_of "$CLAUDE_PLUGINS/$plugin_ver_dir")
+    if [ "$FORCE_SYNC" != "true" ] && [ "$plugin_state" != "unknown|" ] \
+       && [ -f "$target_dir/$STATE_FILE" ] && [ "$(cat "$target_dir/$STATE_FILE")" = "$plugin_state" ]; then
+        echo "UNCHANGED: $skill_name （${plugin_state%%|*} 未变）"
+        continue
+    fi
+
     if [ "$DRY_RUN" = "true" ]; then
         echo "WOULD SYNC: $skill_name <- ${skill_dir#$HOME/}"
         continue
@@ -96,6 +126,7 @@ while IFS= read -r p; do [ -n "$p" ] && find "$p" -name "SKILL.md" -path "*/skil
     rm -rf "$target_dir"
     cp -r "$skill_dir" "$target_dir"
     echo "$skill_dir" > "$target_dir/$MARKER_FILE"
+    echo "$plugin_state" > "$target_dir/$STATE_FILE"
     echo "SYNC: $skill_name"
 done
 

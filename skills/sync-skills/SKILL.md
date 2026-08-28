@@ -20,8 +20,8 @@ description: 双向同步 skills：正向把在装 Claude Code 插件的 skills 
 
 ### Marker 机制
 
-1. **首次同步**：拷贝时在 skill 目录内创建 `.synced-from-plugin`，内容为源路径
-2. **重跑同步**：有 marker → 受管副本，安全覆盖（插件升级后重跑即刷新）
+1. **首次同步**：拷贝时在 skill 目录内创建 `.synced-from-plugin`（源路径）和 `.synced-plugin-state`（插件指纹 `version|gitCommitSha`，取自 manifest）
+2. **重跑同步**：有 marker → 受管副本。指纹与副本记录完全一致则跳过（UNCHANGED，不重拷）；版本或 sha 任一变化即覆盖（SYNC）。sha 是 git 内容指纹，补版本号的盲区（作者改内容忘 bump 版本时 sha 仍会变）；两者都缺的插件（官方市场过半不声明版本，更新时原地覆盖目录）没有可用判据，每次都重拷
 3. **手动内容保护**：无 marker 的目录是用户手动管理的，一律跳过
 4. **--force**：无视 marker 全量覆盖
 
@@ -51,7 +51,7 @@ bash <skill-dir>/scripts/sync-skills.sh --force      # 用户明确要求覆盖�
 
 脚本只负责机械同步，以下判断由模型完成：
 
-1. **报告**：向用户简要汇总 SYNC / CLEAN / SKIP-PLUGIN / LINK / UNLINK。SYNC 的 skill 对 Codex 即刻可用；CLEAN 为已清理的受管副本；SKIP-PLUGIN 为功能型插件未同步，走下面的等价安装流程；LINK 为新建的 Claude 入口
+1. **报告**：向用户简要汇总 SYNC / CLEAN / SKIP-PLUGIN / LINK / UNLINK。SYNC 为内容有变化、已刷新的副本（UNCHANGED 的无需提及）；CLEAN 为已清理的受管副本；SKIP-PLUGIN 为功能型插件未同步，走下面的等价安装流程；LINK 为新建的 Claude 入口
 2. **内容甄别**：逐个速览本次 SYNC 的 skill 的 SKILL.md，内容明显依赖 Claude 专属机制或工作流、对 Codex 无意义的，在报告中指出并建议加入主脚本 `case "$skill_name"` 的排除名单（用户确认后固化），其余不展开
 
 ### SKIP-PLUGIN：为其他 agent 找等价安装
