@@ -30,7 +30,7 @@ done
 
 ## Step 3: 双向同步
 
-执行姊妹 skill `sync-skills`（与本 skill 同源安装，用 Skill 工具调用）：正向插件 skills → 仓库、反向仓库 → Claude 入口，加同步后模型侧流程（报告/甄别/为在装 agent 找 SKIP-PLUGIN 等价安装）全跑。
+执行姊妹 skill `sync-skills`（与本 skill 同源安装，用 Skill 工具调用）：正向插件 skills → 仓库、反向仓库 → Claude 入口，加同步后模型侧流程（报告/为在装 agent 找 SKIP-PLUGIN 等价安装）全跑。
 
 **完成标准**：脚本跑完，记录 SYNC / SKIP-PLUGIN / CLEAN / LINK / UNLINK 各计数；Claude 入口断链数为 0：
 

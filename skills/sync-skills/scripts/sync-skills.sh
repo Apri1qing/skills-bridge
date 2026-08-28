@@ -76,30 +76,18 @@ while IFS= read -r p; do [ -n "$p" ] && find "$p" -name "SKILL.md" -path "*/skil
     esac
     # 自动排除功能型插件（含 hooks/commands/agents/MCP 组件）——其 skills
     # 与专属机制联动，单独同步意义有限，留在各端插件内原生生效。
-    # 白名单例外：skills 独立可用、需要共享的功能型插件。
     plugin_root=$(echo "$rel" | cut -d/ -f1-2)
     plugin_ver_dir=$(echo "$rel" | cut -d/ -f1-3)
-    case "$plugin_root" in
-        # 白名单当前为空：所有功能型插件均不同步
-        # 如需给某功能型插件破例，加一行 "<市场>/<插件>) ;;"
-        *)
-            is_functional=false
-            for comp in hooks commands agents .mcp.json mcp; do
-                [ -e "$CLAUDE_PLUGINS/$plugin_ver_dir/$comp" ] && is_functional=true
-            done
-            if [ "$is_functional" = "true" ]; then
-                echo "SKIP-PLUGIN: $plugin_root （功能型插件，不同步）"
-                continue
-            fi
-            ;;
-    esac
+    is_functional=false
+    for comp in hooks commands agents .mcp.json mcp; do
+        [ -e "$CLAUDE_PLUGINS/$plugin_ver_dir/$comp" ] && is_functional=true
+    done
+    if [ "$is_functional" = "true" ]; then
+        echo "SKIP-PLUGIN: $plugin_root （功能型插件，不同步）"
+        continue
+    fi
     skill_name=$(basename "$skill_dir")
     case "$skill_name" in .*) continue ;; esac
-    # 排除内容仅适用于 Claude Code 的 skill（依赖 Claude 专属机制或工作流）。
-    # 前两个是本插件自身（Claude 专属工作流）；其余候选由 skill 同步后的甄别步骤发现、用户确认后加入。
-    case "$skill_name" in
-        skills-maintenance|sync-skills) continue ;;
-    esac
 
     target_dir="$AGENTS_SKILLS/$skill_name"
 

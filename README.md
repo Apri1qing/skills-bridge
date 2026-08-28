@@ -82,7 +82,7 @@ Understand this diagram and the rules are all inside it:
 
 ## Self-consistent by design
 
-skills-bridge's own skills are Claude-specific workflows, listed in the sync script's exclusion list, so it never syncs itself into the warehouse. It follows its own rules.
+skills-bridge is itself a pure-skills plugin, so its own two skills sync into the warehouse like everything else — any agent can trigger the sync, while Claude Code keeps reading the plugin original, and neither side interferes with the other. It applies the same rules to itself as to everyone else.
 
 ## License
 

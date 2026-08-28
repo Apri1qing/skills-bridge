@@ -82,7 +82,7 @@ flowchart TB
 
 ## 设计自洽
 
-skills-bridge 自己的两个 skill 是 Claude 专属工作流，列在同步脚本的排除名单里，所以它永远不会把自己同步进公共仓库——它遵守自己定下的规则。
+skills-bridge 自己也是纯 skills 插件，它的两个 skill 同样被同步进公共仓库——任何 agent 都能触发同步，Claude Code 侧继续读插件真身，两边互不干扰。它对自己执行和别人一样的规则。
 
 ## 许可
 

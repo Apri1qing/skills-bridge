@@ -47,12 +47,11 @@ bash <skill-dir>/scripts/sync-skills.sh list         # 用户只想查看受管�
 bash <skill-dir>/scripts/sync-skills.sh --force      # 用户明确要求覆盖手动管理的目录时；有破坏性，未明确要求不要用
 ```
 
-### 同步后：报告与甄别（模型侧）
+### 同步后：报告（模型侧）
 
-脚本只负责机械同步，以下判断由模型完成：
+脚本只负责机械同步，汇总由模型完成：
 
 1. **报告**：向用户简要汇总 SYNC / CLEAN / SKIP-PLUGIN / LINK / UNLINK。SYNC 为内容有变化、已刷新的副本（UNCHANGED 的无需提及）；CLEAN 为已清理的受管副本；SKIP-PLUGIN 为功能型插件未同步，走下面的等价安装流程；LINK 为新建的 Claude 入口
-2. **内容甄别**：逐个速览本次 SYNC 的 skill 的 SKILL.md，内容明显依赖 Claude 专属机制或工作流、对 Codex 无意义的，在报告中指出并建议加入主脚本 `case "$skill_name"` 的排除名单（用户确认后固化），其余不展开
 
 ### SKIP-PLUGIN：为其他 agent 找等价安装
 
@@ -77,9 +76,8 @@ find ~/.claude/skills -maxdepth 1 -type l ! -exec test -e {} \; -print | wc -l
 
 ## Notes
 
-- **功能型插件自动排除**：插件目录含 `hooks/`、`commands/`、`agents/`、`.mcp.json`、`mcp` 任一组件即视为功能型，其 skills 不进仓库（留在各端插件内原生生效），改走等价安装流程。白名单在主脚本 `case "$plugin_root"` 处维护，当前为空
-- **Claude 专属内容排除**：纯 skills 插件中，内容仅适用于 Claude Code（依赖 Claude 专属机制或工作流）的 skill 不同步——与 Codex 插件依赖其内置能力同理。排除名单在主脚本 `case "$skill_name"` 处维护
+- **功能型插件自动排除**：插件目录含 `hooks/`、`commands/`、`agents/`、`.mcp.json`、`mcp` 任一组件即视为功能型，其 skills 不进仓库（留在各端插件内原生生效），改走等价安装流程
 - **孤儿清理**：每次同步完成后自动扫描所有 marker，源目录已不存在（上游插件升级时删除的 skill）或所属插件已卸载（`/plugin uninstall` 只改 installed_plugins.json、不删 cache 目录，以 manifest 的 installPath 判断）的副本会被清理；`--dry-run` 模式下仅报告不删除。cache 中已卸载插件和旧版本的残留目录会被跳过、不同步
 - **升级链路**：Claude Code 升级插件 → 重跑本 skill → 副本刷新 → Codex 立即可用新版；`npx skills update` 刷新仓库 → Claude 入口是软链，自动生效
 - **Claude 侧无感知**：Claude Code 继续读插件真身，正向同步不影响它
-- **本 skill 自身**：本插件的两个 skill（skills-maintenance、sync-skills）是 Claude 专属工作流，列在主脚本 `case "$skill_name"` 排除名单里，同步不会触碰自身
+- **本 skill 自身也同步**：本插件是纯 skills 插件，自身两个 skill 同样进仓库——任何 agent 都能触发同步；Claude 侧因 marker 不重复建入口
