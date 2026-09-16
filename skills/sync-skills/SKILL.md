@@ -1,90 +1,49 @@
 ---
 name: sync-skills
-description: 双向同步 skills：正向把在装 Claude Code 插件的 skills 拷贝到 ~/.agents/skills/（agentskills 标准目录，Codex 等工具原生扫描），反向给仓库里 Claude Code 还看不到的 skill 补软链入口；功能型插件则探测本地在装的其他 agent，联网查等价安装方式并安装。装/升级/卸载插件后、npx skills add 装新 skill 后，或用户要求同步 skills、预览同步、查看受管副本时使用。
+description: 同步 skills 到公共仓库 ~/.agents/skills/：Claude 插件纯 skill 拷贝进去；Codex ~/.codex/skills 纯 skill 迁走（删 .codex 实体防双份）；反向给 Claude 补 ~/.claude/skills 软链。绑宿主（hooks/MCP/.system/内置工具）SKIP。装/升级/卸载插件后、整理 Codex skills、或要求同步/预览/列出受管副本时使用。
 ---
 
 # Sync Skills
 
-双向同步，让 `~/.agents/skills/` 公共仓库成为所有 agent 的单一事实源：
+让 `~/.agents/skills/` 成为不绑宿主的纯 skill 单一事实源。
 
-- **正向**：在装 Claude Code 插件的 skills → 仓库（拷贝），Codex 等工具即可使用
-- **反向**：仓库里 Claude Code 还看不到的 skill → `~/.claude/skills/` 软链入口
+| 方向 | 行为 |
+|---|---|
+| Claude 插件 → agents | 拷贝 + `.synced-from-plugin` marker；功能型插件 SKIP |
+| Codex `~/.codex/skills` → agents | 纯 skill **迁走**（拷贝后删 `.codex` 实体）；`.system`/绑宿主 SKIP；`.codex→.claude` 旁路软链删除 |
+| agents → Claude | 给 `~/.claude/skills/` 补软链；插件真身已加载的去重 |
 
-## 正向：插件 skills → 仓库
+## 判定
 
-- 源为 manifest（installed_plugins.json）登记的在装插件，取其 `skills/*/SKILL.md`，不扫 cache 全目录
-- 拷贝（非软链接）到 `~/.agents/skills/<name>/`，用 `.synced-from-plugin` marker 文件记录来源路径
-- 过滤 `docs/`、`.agents/`、`.cursor/`、`.claude/` 多语言镜像路径
-- 同插件多版本目录时 `sort -V` 保证最新版本最后写入生效
-- `~/.claude/skills/` 不在源内（软链接目录，避免回拷）
-
-### Marker 机制
-
-1. **首次同步**：拷贝时在 skill 目录内创建 `.synced-from-plugin`（源路径）和 `.synced-plugin-state`（插件指纹 `version|gitCommitSha`，取自 manifest）
-2. **重跑同步**：有 marker → 受管副本。指纹与副本记录完全一致则跳过（UNCHANGED，不重拷）；版本或 sha 任一变化即覆盖（SYNC）。sha 是 git 内容指纹，补版本号的盲区（作者改内容忘 bump 版本时 sha 仍会变）；两者都缺的插件（官方市场过半不声明版本，更新时原地覆盖目录）没有可用判据，每次都重拷
-3. **手动内容保护**：无 marker 的目录是用户手动管理的，一律跳过
-4. **--force**：无视 marker 全量覆盖
-
-## 反向：仓库 → Claude 入口
-
-正向之后自动执行，纯机械：
-
-1. **去重**：`~/.claude/skills/` 里指向带 marker 副本的软链删掉（Claude 已通过插件真身加载，留着是双份）
-2. **清断链**：仓库里已删除的 skill 留下的死入口删掉
-3. **补缺**：仓库有、Claude 没有的 skill（`npx skills add` 装的、手写的）建软链入口，marker 副本除外
-
-方向不对称是刻意的：正向拷贝（插件路径带版本号会搬家，软链必断），反向软链（仓库路径稳定，`npx skills update` 刷新内容后 Claude 侧零动作即用新版）。
+- **绑宿主（不进 agents）**：含 `hooks/`、`commands/`、`.mcp.json`、`mcp`；或 `agents/` 里不止展示用 `openai.yaml`；或正文依赖 Codex 内置 `image_gen`；或 `.system/`
+- **纯 skill**：其余有 `SKILL.md` 的目录
 
 ## Workflow
 
-主脚本在本 skill 的 `scripts/` 内，随 skill 一起分发（插件安装、skills CLI 安装两种形态都自包含）。按用户的自然语言意图选择脚本参数：
-
 ```bash
-# <skill-dir> = 本 skill 的 base directory（Skill 调用时注入）
-bash <skill-dir>/scripts/sync-skills.sh              # 默认：双向全量同步（尊重 marker）
-bash <skill-dir>/scripts/sync-skills.sh --dry-run    # 用户想先看看会做什么、要求预览时
-bash <skill-dir>/scripts/sync-skills.sh list         # 用户只想查看受管副本及其来源时
-bash <skill-dir>/scripts/sync-skills.sh --force      # 用户明确要求覆盖手动管理的目录时；有破坏性，未明确要求不要用
+# <skill-dir> = 本 skill 目录
+bash <skill-dir>/scripts/sync-skills.sh              # 全量同步
+bash <skill-dir>/scripts/sync-skills.sh --dry-run    # 只预览
+bash <skill-dir>/scripts/sync-skills.sh list         # 列出受管副本
+bash <skill-dir>/scripts/sync-skills.sh --force      # 覆盖手管目录（需明确要求）
 ```
 
-### 同步后：报告（模型侧）
+### 同步后报告
 
-脚本只负责机械同步，汇总由模型完成：
-
-1. **报告**：向用户简要汇总 SYNC / CLEAN / SKIP-PLUGIN / LINK / UNLINK。SYNC 为内容有变化、已刷新的副本（UNCHANGED 的无需提及）；CLEAN 为已清理的受管副本；SKIP-PLUGIN 为功能型插件未同步，走下面的等价安装流程；LINK 为新建的 Claude 入口
-
-### SKIP-PLUGIN：为其他 agent 找等价安装
-
-功能型插件的 hooks/commands/agents 搬不动，唯一途径是在其他 agent 侧装等价物。对本次出现的每个 SKIP-PLUGIN 插件：
-
-1. **探测本地在装的 agent**：用 `command -v` 逐个检查 codex、cursor、gemini、opencode、pi 等常见 agent CLI，只为实际装了的找等价物
-2. **查等价装法**：用 WebSearch 按「插件名 + agent 名」查该插件在各在装 agent 侧的官方/社区安装方式（不少插件仓库本身就带 `gemini-extension.json`、`opencode.json` 等多端配置，优先查插件源仓库）。只认全局安装；项目级装法（如拷规则进项目 `.cursor/rules/`）不算等价物，该 agent 判为无对应物
-3. **跳过已装**：安装前对每个 agent 做全局存在性检查，命中即跳过。各 agent 的检测命令查其全局事实源：
-   - codex：`grep -i '<插件名>' ~/.codex/config.toml`
-   - opencode：`grep -i '<插件名>' ~/.config/opencode/opencode.json`；本地插件另查 `ls ~/.config/opencode/plugins/`
-   - cursor：`find ~/.cursor/plugins/cache ~/.cursor/plugins/local -maxdepth 2 -iname '*<插件名>*' 2>/dev/null`（目录结构 `cache/<marketplace>/<插件名>`）
-   - 其他 agent：探测到后查其全局配置文件
-
-   存在性检查禁止接 `head`/`tail`——截断输出只能证明「看到了这些」，证明不了「没有更多」
-4. **确认后安装**：把查到的安装命令列给用户，逐条确认后执行；查不到的简要说明该 agent 无对应物，不猜命令
+汇总：`SYNC` / `MIGRATE-CODEX` / `DEDUP-CODEX` / `REMOVE-BYPASS` / `SKIP-PLUGIN` / `SKIP-CODEX-BOUND` / `CLEAN` / `LINK` / `UNLINK`。  
+`SKIP-PLUGIN` 仍按原流程：为其他 agent 查等价安装（经确认再装）。
 
 ### 验证
 
 ```bash
-# 查看受管副本
 ls ~/.agents/skills/ | head -20
-
-# 抽查 marker 与内容
-cat ~/.agents/skills/<name>/.synced-from-plugin
-
-# Claude 入口断链数应为 0
-find ~/.claude/skills -maxdepth 1 -type l ! -exec test -e {} \; -print | wc -l
+cat ~/.agents/skills/<name>/.synced-from-plugin   # 或 .synced-from-codex
+ls ~/.codex/skills                                 # 纯 skill 迁完后应主要剩 .system
+find ~/.claude/skills -maxdepth 1 -type l ! -exec test -e {} \; -print | wc -l   # 应为 0
 ```
 
 ## Notes
 
-- **功能型插件自动排除**：插件目录含 `hooks/`、`commands/`、`agents/`、`.mcp.json`、`mcp` 任一组件即视为功能型，其 skills 不进仓库（留在各端插件内原生生效），改走等价安装流程
-- **孤儿清理**：每次同步完成后自动扫描所有 marker，源目录已不存在（上游插件升级时删除的 skill）或所属插件已卸载（`/plugin uninstall` 只改 installed_plugins.json、不删 cache 目录，以 manifest 的 installPath 判断）的副本会被清理；`--dry-run` 模式下仅报告不删除。cache 中已卸载插件和旧版本的残留目录会被跳过、不同步
-- **升级链路**：Claude Code 升级插件 → 重跑本 skill → 副本刷新 → Codex 立即可用新版；`npx skills update` 刷新仓库 → Claude 入口是软链，自动生效
-- **Claude 侧无感知**：Claude Code 继续读插件真身，正向同步不影响它
-- **本 skill 自身也同步**：本插件是纯 skills 插件，自身两个 skill 同样进仓库——任何 agent 都能触发同步；Claude 侧因 marker 不重复建入口
+- Codex 迁走不留软链在 `.codex`，避免 slash 同名双份（Codex 已扫 agents）
+- Claude 继续读插件真身；仓库入口是软链，仅补缺
+- 手管（无 marker）的 agents 目录默认不覆盖；Codex 源也保留直至 `--force`

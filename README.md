@@ -4,6 +4,12 @@ For people who use Claude Code alongside other agents: one copy of your skills, 
 
 [English](README.md) | [中文](README.zh-CN.md)
 
+## What it does now (incl. Codex)
+
+- **Claude**: copy pure plugin skills into `~/.agents/skills`; symlink repo skills into `~/.claude/skills`
+- **Codex**: **migrate** pure skills from `~/.codex/skills` into agents and delete the `.codex` copy (no duplicate slash entries); keep `.system` / host-bound; remove `.codex → .claude` bypass symlinks
+- Host-bound skills (hooks / MCP / built-in tools) stay out of the shared repo
+
 ## Why you need it
 
 Each tool installs skills **in a different place**, and each only reads its own directory:

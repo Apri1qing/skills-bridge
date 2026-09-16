@@ -4,6 +4,12 @@
 
 [English](README.md) | [中文](README.zh-CN.md)
 
+## 当前能力（含 Codex）
+
+- **Claude**：插件纯 skill → 拷贝进 `~/.agents/skills`；仓库 → `~/.claude/skills` 软链
+- **Codex**：`~/.codex/skills` 里的纯 skill → **迁入** agents 并删除 `.codex` 实体（防双份）；`.system` 与绑宿主的留下；清掉 `.codex→.claude` 旁路软链
+- 绑宿主（hooks / MCP / 内置工具等）不进公共仓库
+
 ## 为什么需要它
 
 各个工具把 skill 装在**不同的地方**，又各自只认自己的目录：
