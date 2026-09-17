@@ -4,13 +4,16 @@ For people who use Claude Code **and** other agents: one shared library of skill
 
 [English](README.md) | [中文](README.zh-CN.md)
 
-## Optional: share skills across your machines
+## Optional: share skills across machines (and cloud boxes)
 
-Want the **same skill library on more than one computer**? You can keep a private git copy (skills-vault) and let this plugin sync your machine’s `~/.agents/skills` with it.
+Treat every environment as a **peer**: your laptop, another PC, or a cloud box (e.g. Grok). They all talk to the **same private skills-vault**.
 
-- Don’t need that? **Ignore it.** Sync still works on one machine.
-- Want it? Run **`/init-vault`** once (pick a folder; optionally create a private GitHub repo).
-- After that, normal **`/sync-skills`** / **`/skills-maintenance`** will pull and push the mirror when the vault is configured. No vault configured → sync skips it quietly.
+- Don’t need sharing? **Ignore vault.** Single-machine sync still works.
+- First machine: **`/init-vault`** (create the private git repo).
+- Any other machine/box: `git clone` the vault → **`/init-vault`** / `setup` and point the local skills dir at `~/.agents/skills` (laptop) or `/home/box/agent-data/workflows` (Grok box) → **`/sync-skills`**.
+- New skills on any peer: land in that machine’s skills dir → sync → push to vault; other peers sync to pull.
+
+No vault configured → sync skips it quietly. No special Grok-only side channel.
 
 ## What it does
 

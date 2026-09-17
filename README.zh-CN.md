@@ -4,13 +4,16 @@
 
 [English](README.md) | [中文](README.zh-CN.md)
 
-## 可选：多台电脑共用同一套 skill
+## 可选：多台机器共用同一套 skill（含云端 box）
 
-如果你希望**好几台电脑上的 skill 库保持一致**，可以准备一个私有 git 备份（skills-vault），由本插件在本机 `~/.agents/skills` 和它之间同步。
+把每台环境都当成**对等节点**：笔记本、另一台电脑、云端 box（例如 Grok）都连**同一个私有 skills-vault**。
 
-- **不需要多机共用？完全不用管。** 单机同步照常工作。
-- 需要的话：跑一次 **`/init-vault`**（选本地目录；可选再建一个 GitHub 私有库）。
-- 配置好之后，平时的 **`/sync-skills`** / **`/skills-maintenance`** 会顺带拉取/推送这份备份。没配置过 → 同步时安静跳过，不会追问。
+- **不需要共享？完全不用管 vault。** 单机同步照常。
+- 第一台：跑 **`/init-vault`** 建私有 git 仓。
+- 其他机器/box：`git clone` vault → **`/init-vault`** / `setup`，本机落点指到 `~/.agents/skills`（电脑）或 `/home/box/agent-data/workflows`（Grok box）→ 再跑 **`/sync-skills`**。
+- 任意节点上新装的 skill：进本机落点 → sync → push；其他节点再 sync 即可更新。
+
+没配置 vault → 同步安静跳过。不要再给 Grok 单独开旁路。
 
 ## 它能做什么
 

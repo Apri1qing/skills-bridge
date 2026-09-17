@@ -320,7 +320,9 @@ cmd_sync() {
   fi
 
   echo "== git pull =="
-  git -C "$VAULT_PATH" pull --ff-only || git -C "$VAULT_PATH" pull --rebase
+  if ! git -C "$VAULT_PATH" pull --ff-only 2>/dev/null && ! git -C "$VAULT_PATH" pull --rebase 2>/dev/null; then
+    echo "git pull skipped/failed (offline or no credentials) — continue with local vault"
+  fi
 
   mkdir -p "$SKILLS_DIR"
   echo "== agents → vault (add/update, no delete) =="

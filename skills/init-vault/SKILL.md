@@ -1,44 +1,54 @@
 ---
 name: init-vault
 description: >-
-  Use when the user wants the same skills on more than one computer: create or
-  register a private skills-vault, or re-run setup. Do not use during ordinary
-  sync — vault is optional and never required.
+  Use when the user wants the same skills across machines (another laptop or a
+  cloud box like Grok): create or register a private skills-vault, or re-run
+  setup. Every machine is a peer — same sync, only the local skills directory
+  path may differ. Do not use during ordinary sync.
 ---
 
 # init-vault
 
-帮用户**一次性**配好多机共用的 skill 备份。用户没提多机/vault 时不要主动推荐。
+把**任意一台机器**（新电脑、云端 box）接到同一个私有 skills-vault。模型：大家都是对等节点，不是「本机一套、Grok 另推」。
+
+## 每台机器要有的两样东西
+
+1. 本机 skill 目录（落点）  
+   - 普通电脑：`~/.agents/skills`  
+   - Grok / box：`/home/box/agent-data/workflows`（或你指定的等价目录）
+2. 同一个 git vault 的 clone + `vault-mirror.sh setup <vault> [落点]`
 
 ## 找到脚本
-
-在已安装的 **skills-bridge** 插件目录里找：
 
 ```bash
 find "$HOME/.claude/plugins" -path '*skills-bridge*/vault-mirror.sh' 2>/dev/null | head -1
 ```
 
-若用户从源码装过，也可能在其 clone 的 `skills-bridge/skills/sync-skills/scripts/vault-mirror.sh`。把路径记为 `VM`。
+源码安装时也可能在 clone 的 `skills-bridge/skills/sync-skills/scripts/vault-mirror.sh`。记为 `VM`。
 
-## 流程
+## 从零（还没有 GitHub 仓）
 
-1. 问清：本地目录（默认 `~/skills-vault`）；是否建 GitHub 私有库（要则 `owner/name`，不要则本地 git 即可）；若已有 git 仓则只登记。
-2. 执行：
+在**一台**机器上：
 
 ```bash
-# 新建
-bash "$VM" init ~/skills-vault
-bash "$VM" init ~/skills-vault --repo OWNER/REPO
-bash "$VM" init ~/skills-vault --no-github
-
-# 已有仓只登记
-bash "$VM" setup /path/to/skills-vault
+bash "$VM" init ~/skills-vault --repo OWNER/skills-vault   # 或 --no-github
 ```
 
-3. `bash "$VM" status` 确认已配置。
-4. 说明：之后日常用 `/sync-skills` 即可；vault 里只放 skill 内容，不要放密钥。
+## 新电脑或 box（远端仓已有）
+
+```bash
+git clone https://github.com/OWNER/skills-vault.git ~/skills-vault   # box 上路径自定
+# 普通电脑：
+bash "$VM" setup ~/skills-vault ~/.agents/skills
+# Grok box：
+bash "$VM" setup ~/skills-vault /home/box/agent-data/workflows
+```
+
+然后跑 skills-bridge 的 **`/sync-skills`**（或直接 `bash …/sync-skills.sh`）：pull → 与本机落点合并 → push。  
+之后任何节点上新装的 skill，进落点再 sync，就会进 vault；其他节点再 sync 即可更新。
 
 ## 不要做
 
-- 不要在普通 `/sync-skills` 流程里自动 init
-- 不要写死某个人的本机路径
+- 不要为 Grok 单独发明第二条旁路命令
+- 不要在普通 sync 里自动 init
+- box 若暂时不能 `gh`/clone 私库，用已有 vault 打包拷到 box 再 `setup`，效果相同
