@@ -3,7 +3,8 @@
 #   Claude 正向：在装插件纯 skills → ~/.agents/skills/（拷贝 + marker）
 #   Codex 正向：~/.codex/skills 纯 skills → ~/.agents/skills/（拷贝后删除 .codex 实体，避免双份）
 #   Claude 反向：~/.agents/skills/ → ~/.claude/skills/（软链入口）
-# 用法: sync-skills.sh [--force] [--dry-run] [list]
+# 用法: sync-skills.sh [--force] [--dry-run] [--skip-vault] [list]
+# 默认：bridge 前后接 skills-vault（pull→整理→镜像回仓）；--skip-vault 关掉
 AGENTS_SKILLS="$HOME/.agents/skills"
 CLAUDE_PLUGINS="$HOME/.claude/plugins/cache"
 CODEX_SKILLS="$HOME/.codex/skills"
@@ -14,13 +15,64 @@ CODEX_STATE=".synced-codex-state"
 FORCE_SYNC=false
 DRY_RUN=false
 LIST_ONLY=false
+SKIP_VAULT=false
 for arg in "$@"; do
     case "$arg" in
         --force) FORCE_SYNC=true ;;
         --dry-run) DRY_RUN=true ;;
+        --skip-vault) SKIP_VAULT=true ;;
         list) LIST_ONLY=true ;;
     esac
 done
+
+# Optional skills-vault mirror (multi-machine). Bridge stays the user-facing entry.
+resolve_vault_sync() {
+    if [ -n "${SKILLS_VAULT:-}" ] && [ -x "${SKILLS_VAULT}/scripts/sync.sh" ]; then
+        echo "${SKILLS_VAULT}/scripts/sync.sh"
+        return 0
+    fi
+    local cfg="${XDG_CONFIG_HOME:-$HOME/.config}/skills-vault/config"
+    if [ -f "$cfg" ]; then
+        # shellcheck disable=SC1090
+        source "$cfg"
+        if [ -n "${VAULT_PATH:-}" ] && [ -x "${VAULT_PATH}/scripts/sync.sh" ]; then
+            echo "${VAULT_PATH}/scripts/sync.sh"
+            return 0
+        fi
+    fi
+    local cand
+    for cand in "$HOME/Documents/personal/skills-vault" "$HOME/Documents/personal/skills-vault"; do
+        if [ -x "$cand/scripts/sync.sh" ]; then
+            echo "$cand/scripts/sync.sh"
+            return 0
+        fi
+    done
+    return 1
+}
+
+vault_pre() {
+    [ "$SKIP_VAULT" = "true" ] && return 0
+    [ "$DRY_RUN" = "true" ] && return 0
+    local vs
+    if ! vs="$(resolve_vault_sync)"; then
+        echo "VAULT: skip (no skills-vault — run vault sync.sh setup, or pass --skip-vault)"
+        return 0
+    fi
+    echo "=== skills-vault pre (pull + merge into agents) ==="
+    bash "$vs" sync || echo "VAULT: pre sync failed (continue bridge)"
+}
+
+vault_post() {
+    [ "$SKIP_VAULT" = "true" ] && return 0
+    [ "$DRY_RUN" = "true" ] && return 0
+    local vs
+    if ! vs="$(resolve_vault_sync)"; then
+        return 0
+    fi
+    echo ""
+    echo "=== skills-vault post (mirror agents → vault + commit/push) ==="
+    bash "$vs" sync --commit || echo "VAULT: post sync/commit failed"
+}
 
 mkdir -p "$AGENTS_SKILLS"
 
@@ -94,6 +146,8 @@ if [ "$LIST_ONLY" = "true" ]; then
     done
     exit 0
 fi
+
+vault_pre
 
 echo "=== Claude 插件 → agents ==="
 while IFS= read -r p; do [ -n "$p" ] && find "$p" -name "SKILL.md" -path "*/skills/*" 2>/dev/null; done <<< "$installed_paths" | sort -V | while read -r skill_file; do
@@ -284,6 +338,7 @@ if [ "$DRY_RUN" = "true" ]; then
     echo ""
     echo "=== dry-run 结束（未改磁盘）==="
 else
+    vault_post
     echo ""
-    echo "=== 同步完成：Claude 插件/Codex 纯 skill → $AGENTS_SKILLS；Claude 入口 → $CLAUDE_SKILLS ==="
+    echo "=== 同步完成：Claude 插件/Codex 纯 skill → $AGENTS_SKILLS；Claude 入口 → $CLAUDE_SKILLS（含 vault 镜像）==="
 fi

@@ -4,6 +4,12 @@
 
 [English](README.md) | [中文](README.zh-CN.md)
 
+## 与 skills-vault
+
+日常入口仍是 **本插件**（`/sync-skills` / `/skills-maintenance`），不是单独记 vault 命令。
+
+默认流程：`vault pull+合并` → bridge 整理宿主目录 → `agents` 全量镜像回 vault 并 push。`--skip-vault` 可关掉。需先在本机对 [skills-vault](https://github.com/Apri1qing/skills-vault) 跑过 `./scripts/sync.sh setup`。
+
 ## 当前能力（含 Codex）
 
 - **Claude**：插件纯 skill → 拷贝进 `~/.agents/skills`；仓库 → `~/.claude/skills` 软链
