@@ -36,10 +36,21 @@ vault_pre() {
         echo "VAULT: skip (missing vault-mirror.sh)"
         return 0
     fi
-    if [ ! -f "${XDG_CONFIG_HOME:-$HOME/.config}/skills-bridge/vault.conf" ] && [ -z "${SKILLS_VAULT:-}" ]; then
-        echo "VAULT: skip (not configured — run: bash $VAULT_MIRROR setup <vault_path>)"
+    local st
+    st="$(bash "$VAULT_MIRROR" state 2>/dev/null || echo missing)"
+    case "$st" in
+      declined)
+        echo "VAULT: opted out — skip (re-enable: bash $VAULT_MIRROR enable)"
         return 0
-    fi
+        ;;
+      missing)
+        # Non-interactive: do NOT init. Agent/SKILL should ask the user once.
+        echo "VAULT_NEEDED: no vault configured. Ask user to init/setup, or decline."
+        echo "  init:    bash $VAULT_MIRROR init ~/skills-vault"
+        echo "  decline: bash $VAULT_MIRROR decline   # remember, no more prompts"
+        return 0
+        ;;
+    esac
     echo "=== vault pre (pull + merge into agents) ==="
     bash "$VAULT_MIRROR" sync || echo "VAULT: pre sync failed (continue bridge)"
 }
@@ -48,9 +59,12 @@ vault_post() {
     [ "$SKIP_VAULT" = "true" ] && return 0
     [ "$DRY_RUN" = "true" ] && return 0
     [ -x "$VAULT_MIRROR" ] || return 0
-    if [ ! -f "${XDG_CONFIG_HOME:-$HOME/.config}/skills-bridge/vault.conf" ] && [ -z "${SKILLS_VAULT:-}" ]; then
-        return 0
-    fi
+    local st
+    st="$(bash "$VAULT_MIRROR" state 2>/dev/null || echo missing)"
+    case "$st" in
+      configured) ;;
+      *) return 0 ;;
+    esac
     echo ""
     echo "=== vault post (mirror agents → vault + commit/push) ==="
     bash "$VAULT_MIRROR" sync --commit || echo "VAULT: post sync/commit failed"

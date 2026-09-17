@@ -41,3 +41,17 @@ bash vault-mirror.sh push-box [/path/to/workflows]   # 通常在 box 上
 
 - 绑宿主不进 agents：hooks/commands/mcp、非展示 agents、依赖内置 image_gen、`.system/`
 - `.synced-*`、密钥文件不进 vault
+
+
+## 没有 vault 时（只问一次）
+
+跑 sync 若输出 `VAULT_NEEDED`：**不要静默 init**。向用户问清：
+
+1. 是否建立 skills-vault？
+2. 本地路径？（默认 `~/skills-vault`）
+3. 是否创建 GitHub 私库？（要则 `--repo owner/name`，不要则 `--no-github`）
+
+- 用户同意 → `bash vault-mirror.sh init …`，再继续同步  
+- 用户拒绝 → `bash vault-mirror.sh decline`（写入 `VAULT_OPT_OUT=1`）。**之后不再提示**，只跑 bridge  
+- 以后又要 vault → 用户说「启用 vault」或执行 `bash vault-mirror.sh enable`，再走 init/setup
+

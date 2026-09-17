@@ -16,6 +16,8 @@ usage:
   vault-mirror.sh sync [--commit]
   vault-mirror.sh push-box [workflows_path]
   vault-mirror.sh status
+  vault-mirror.sh decline   # remember: user does not want a vault (skip prompts)
+  vault-mirror.sh enable    # clear decline; next sync may prompt/init again
 
 init: create a content-only skills-vault (skills/ + exclude.txt + README + git).
       With gh auth, optionally create/push a private GitHub repo (--repo owner/name).
@@ -110,6 +112,66 @@ rsync_to() {
   fi
 }
 
+
+
+is_opted_out() {
+  [ -f "$CONFIG_FILE" ] || return 1
+  # shellcheck disable=SC1090
+  source "$CONFIG_FILE"
+  [ "${VAULT_OPT_OUT:-0}" = "1" ]
+}
+
+cmd_decline() {
+  mkdir -p "$CONFIG_DIR"
+  if [ -f "$CONFIG_FILE" ]; then
+    # shellcheck disable=SC1090
+    source "$CONFIG_FILE"
+  fi
+  # keep paths if any; set opt out
+  {
+    echo "# skills-bridge ↔ skills-vault mirror config"
+    [ -n "${VAULT_PATH:-}" ] && echo "VAULT_PATH=$(printf '%q' "$VAULT_PATH")"
+    [ -n "${AGENTS_PATH:-}" ] && echo "AGENTS_PATH=$(printf '%q' "$AGENTS_PATH")"
+    echo "VAULT_OPT_OUT=1"
+  } > "$CONFIG_FILE"
+  echo "vault declined → $CONFIG_FILE (VAULT_OPT_OUT=1). sync will skip vault until: $0 enable"
+}
+
+cmd_enable() {
+  mkdir -p "$CONFIG_DIR"
+  if [ -f "$CONFIG_FILE" ]; then
+    # shellcheck disable=SC1090
+    source "$CONFIG_FILE"
+  fi
+  {
+    echo "# skills-bridge ↔ skills-vault mirror config"
+    [ -n "${VAULT_PATH:-}" ] && echo "VAULT_PATH=$(printf '%q' "$VAULT_PATH")"
+    echo "AGENTS_PATH=$(printf '%q' "${AGENTS_PATH:-$HOME/.agents/skills}")"
+    echo "VAULT_OPT_OUT=0"
+  } > "$CONFIG_FILE"
+  echo "vault re-enabled → $CONFIG_FILE. If VAULT_PATH empty, run init or setup."
+}
+
+vault_state() {
+  # prints: configured | declined | missing
+  if [ -f "$CONFIG_FILE" ]; then
+    # shellcheck disable=SC1090
+    source "$CONFIG_FILE"
+    if [ "${VAULT_OPT_OUT:-0}" = "1" ]; then
+      echo declined
+      return
+    fi
+    if [ -n "${VAULT_PATH:-}" ] && [ -d "${VAULT_PATH}/skills" ]; then
+      echo configured
+      return
+    fi
+  fi
+  if [ -n "${SKILLS_VAULT:-}" ] && [ -d "${SKILLS_VAULT}/skills" ]; then
+    echo configured
+    return
+  fi
+  echo missing
+}
 
 cmd_init() {
   local vault_arg=""
@@ -281,9 +343,14 @@ cmd_status() {
   echo "vault skills:  $(find "$SKILLS_DIR" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l | tr -d ' ')"
   echo "agents skills: $(find "$AGENTS_PATH" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l | tr -d ' ')"
   echo "exclude ids:   ${#EXCLUDE_IDS[@]}"
+  if [ -f "$CONFIG_FILE" ]; then source "$CONFIG_FILE"; echo "opt-out:      ${VAULT_OPT_OUT:-0}"; fi
 }
 
 cmd_sync() {
+  if is_opted_out; then
+    echo "vault opted out (VAULT_OPT_OUT=1) — skip. enable: $0 enable"
+    return 0
+  fi
   local do_commit=0
   [ "${1:-}" = "--commit" ] && do_commit=1
   read_config
@@ -374,5 +441,8 @@ case "$CMD" in
   sync) shift; cmd_sync "${1:-}" ;;
   push-box) shift; cmd_push_box "${1:-}" ;;
   status) cmd_status ;;
+  decline) cmd_decline ;;
+  enable) cmd_enable ;;
+  state) vault_state ;;
   *) usage ;;
 esac
