@@ -32,25 +32,10 @@ VAULT_MIRROR="$HERE/vault-mirror.sh"
 vault_pre() {
     [ "$SKIP_VAULT" = "true" ] && return 0
     [ "$DRY_RUN" = "true" ] && return 0
-    if [ ! -x "$VAULT_MIRROR" ]; then
-        echo "VAULT: skip (missing vault-mirror.sh)"
-        return 0
-    fi
+    [ -x "$VAULT_MIRROR" ] || return 0
     local st
     st="$(bash "$VAULT_MIRROR" state 2>/dev/null || echo missing)"
-    case "$st" in
-      declined)
-        echo "VAULT: opted out — skip (re-enable: bash $VAULT_MIRROR enable)"
-        return 0
-        ;;
-      missing)
-        # Non-interactive: do NOT init. Agent/SKILL should ask the user once.
-        echo "VAULT_NEEDED: no vault configured. Ask user to init/setup, or decline."
-        echo "  init:    bash $VAULT_MIRROR init ~/skills-vault"
-        echo "  decline: bash $VAULT_MIRROR decline   # remember, no more prompts"
-        return 0
-        ;;
-    esac
+    [ "$st" = "configured" ] || return 0
     echo "=== vault pre (pull + merge into agents) ==="
     bash "$VAULT_MIRROR" sync || echo "VAULT: pre sync failed (continue bridge)"
 }
@@ -61,10 +46,7 @@ vault_post() {
     [ -x "$VAULT_MIRROR" ] || return 0
     local st
     st="$(bash "$VAULT_MIRROR" state 2>/dev/null || echo missing)"
-    case "$st" in
-      configured) ;;
-      *) return 0 ;;
-    esac
+    [ "$st" = "configured" ] || return 0
     echo ""
     echo "=== vault post (mirror agents → vault + commit/push) ==="
     bash "$VAULT_MIRROR" sync --commit || echo "VAULT: post sync/commit failed"

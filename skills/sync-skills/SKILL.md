@@ -1,6 +1,6 @@
 ---
 name: sync-skills
-description: 同步 skills 到公共目录 ~/.agents/skills/：Claude 插件纯 skill 拷贝；Codex ~/.codex/skills 纯 skill 迁走；反向给 Claude 补软链。默认前后接 vault 全量镜像（命令在本插件 scripts/vault-mirror.sh（含 init 从零建仓）；vault 仓只存内容）。绑宿主 SKIP。装/升级/卸载插件后、整理 Codex、或要求同步/预览/列出受管副本时使用。
+description: 同步 skills 到公共目录 ~/.agents/skills/：Claude 插件纯 skill 拷贝；Codex ~/.codex/skills 纯 skill 迁走；反向给 Claude 补软链。若已 setup/init 过 vault 则前后接全量镜像；**未配置则静默跳过、不问**（命令在本插件 scripts/vault-mirror.sh（含 init 从零建仓）；vault 仓只存内容）。绑宿主 SKIP。装/升级/卸载插件后、整理 Codex、或要求同步/预览/列出受管副本时使用。
 ---
 
 # Sync Skills
@@ -23,13 +23,7 @@ bash sync-skills.sh --skip-vault    # 只 bridge
 bash sync-skills.sh list
 bash sync-skills.sh --force
 
-# 没有 vault 时从零搭建（content-only 仓）
-bash vault-mirror.sh init ~/skills-vault
-# 或指定私库名：bash vault-mirror.sh init ~/skills-vault --repo you/skills-vault
-# 只要本地 git：bash vault-mirror.sh init ~/skills-vault --no-github
-
-# 已有 vault 时只登记路径
-bash vault-mirror.sh setup /path/to/skills-vault
+# vault 可选：未配置则跳过。从零建仓请用姊妹 skill `init-vault`
 bash vault-mirror.sh status
 bash vault-mirror.sh push-box [/path/to/workflows]   # 通常在 box 上
 ```
@@ -42,16 +36,4 @@ bash vault-mirror.sh push-box [/path/to/workflows]   # 通常在 box 上
 - 绑宿主不进 agents：hooks/commands/mcp、非展示 agents、依赖内置 image_gen、`.system/`
 - `.synced-*`、密钥文件不进 vault
 
-
-## 没有 vault 时（只问一次）
-
-跑 sync 若输出 `VAULT_NEEDED`：**不要静默 init**。向用户问清：
-
-1. 是否建立 skills-vault？
-2. 本地路径？（默认 `~/skills-vault`）
-3. 是否创建 GitHub 私库？（要则 `--repo owner/name`，不要则 `--no-github`）
-
-- 用户同意 → `bash vault-mirror.sh init …`，再继续同步  
-- 用户拒绝 → `bash vault-mirror.sh decline`（写入 `VAULT_OPT_OUT=1`）。**之后不再提示**，只跑 bridge  
-- 以后又要 vault → 用户说「启用 vault」或执行 `bash vault-mirror.sh enable`，再走 init/setup
 

@@ -96,3 +96,5 @@ skills-bridge is itself a pure-skills plugin, so its own two skills sync into th
 ## License
 
 MIT
+
+Vault is optional: use skill `init-vault` to create/register; `/sync-skills` mirrors only when configured, otherwise skips silently.

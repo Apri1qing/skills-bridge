@@ -102,3 +102,5 @@ skills-bridge 自己也是纯 skills 插件，它的两个 skill 同样被同步
 ## 许可
 
 MIT
+
+Vault 可选：用 skill `init-vault` 创建/登记；`/sync-skills` 仅在已配置时镜像，否则静默跳过。
