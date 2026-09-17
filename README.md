@@ -76,23 +76,27 @@ Three directories, and **the center is the warehouse — not any single tool**:
 
 ```mermaid
 flowchart TB
-    P["① Claude Code plugins<br/>~/.claude/plugins/"]
+    P["① Claude Code plugins"]
     N["npx skills add"]
     H["Placed by hand"]
-    CX["Codex ~/.codex/skills<br/>(pure skills migrated in)"]
-    W["② Warehouse ~/.agents/skills/<br/>(single home on this machine)"]
-    C["③ ~/.claude/skills/<br/>(symlinks for Claude)"]
-    V["④ skills-vault git repo<br/>(optional multi-machine mirror)<br/>skills/ + exclude.txt"]
-    P -->|"copy + marker"| W
+    CX["Codex pure skills"]
+    W["② 💻 This machine<br/>~/.agents/skills"]
+    C["③ Claude entry<br/>~/.claude/skills"]
+    V["④ ☁️ skills-vault<br/>private git mirror"]
+    M1["💻 Computer A"]
+    M2["💻 Computer B"]
+    IV["/init-vault"]
+    P --> W
     N --> W
     H --> W
-    CX -->|"migrate pure skills"| W
+    CX --> W
     W -->|"symlink"| C
     C --> CC["Claude Code"]
-    W -->|"read directly"| X["Codex / Cursor / OpenCode…"]
-    W -.->|"if configured: /sync-skills mirrors"| V
-    V -.->|"if configured: pull into warehouse"| W
-    IV["/init-vault<br/>(explicit setup only)"] -.->|"creates / registers"| V
+    W -->|"read directly"| X["Codex / Cursor / …"]
+    W <-.->|"when configured: /sync-skills"| V
+    M1 <-.->|"pull / push"| V
+    M2 <-.->|"pull / push"| V
+    IV -.->|"creates / registers"| V
 ```
 
 Understand this diagram and the rules are all inside it:

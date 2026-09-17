@@ -76,23 +76,27 @@ skills-bridge 把这两件事都接了：能搬的搬进所有工具读的**同�
 
 ```mermaid
 flowchart TB
-    P["① Claude Code 插件<br/>~/.claude/plugins/"]
+    P["① Claude Code 插件"]
     N["npx skills add"]
     H["手动放入"]
-    CX["Codex ~/.codex/skills<br/>（纯 skill 迁入）"]
-    W["② 公共仓库 ~/.agents/skills/<br/>（本机单一落点）"]
-    C["③ ~/.claude/skills/<br/>（给 Claude 的软链入口）"]
-    V["④ skills-vault git 仓<br/>（可选多机镜像）<br/>skills/ + exclude.txt"]
-    P -->|"复制 + marker"| W
+    CX["Codex 纯 skill"]
+    W["② 💻 本机仓库<br/>~/.agents/skills"]
+    C["③ Claude 入口<br/>~/.claude/skills"]
+    V["④ ☁️ skills-vault<br/>私有 git 镜像"]
+    M1["💻 电脑 A"]
+    M2["💻 电脑 B"]
+    IV["/init-vault"]
+    P --> W
     N --> W
     H --> W
-    CX -->|"迁入纯 skill"| W
+    CX --> W
     W -->|"软链"| C
     C --> CC["Claude Code"]
-    W -->|"直接读"| X["Codex / Cursor / OpenCode…"]
-    W -.->|"已配置时：/sync-skills 镜像"| V
-    V -.->|"已配置时：pull 进仓库"| W
-    IV["/init-vault<br/>（仅显式执行）"] -.->|"创建 / 登记"| V
+    W -->|"直接读"| X["Codex / Cursor / …"]
+    W <-.->|"已配置时：/sync-skills"| V
+    M1 <-.->|"pull / push"| V
+    M2 <-.->|"pull / push"| V
+    IV -.->|"创建 / 登记"| V
 ```
 
 读懂这张图，规则就都在里面了：
