@@ -25,53 +25,35 @@ for arg in "$@"; do
     esac
 done
 
-# Optional skills-vault mirror (multi-machine). Bridge stays the user-facing entry.
-resolve_vault_sync() {
-    if [ -n "${SKILLS_VAULT:-}" ] && [ -x "${SKILLS_VAULT}/scripts/sync.sh" ]; then
-        echo "${SKILLS_VAULT}/scripts/sync.sh"
-        return 0
-    fi
-    local cfg="${XDG_CONFIG_HOME:-$HOME/.config}/skills-vault/config"
-    if [ -f "$cfg" ]; then
-        # shellcheck disable=SC1090
-        source "$cfg"
-        if [ -n "${VAULT_PATH:-}" ] && [ -x "${VAULT_PATH}/scripts/sync.sh" ]; then
-            echo "${VAULT_PATH}/scripts/sync.sh"
-            return 0
-        fi
-    fi
-    local cand
-    for cand in "$HOME/Documents/personal/skills-vault" "$HOME/Documents/personal/skills-vault"; do
-        if [ -x "$cand/scripts/sync.sh" ]; then
-            echo "$cand/scripts/sync.sh"
-            return 0
-        fi
-    done
-    return 1
-}
+# Vault mirror commands live in this plugin (vault repo is content-only).
+HERE="$(cd "$(dirname "$0")" && pwd)"
+VAULT_MIRROR="$HERE/vault-mirror.sh"
 
 vault_pre() {
     [ "$SKIP_VAULT" = "true" ] && return 0
     [ "$DRY_RUN" = "true" ] && return 0
-    local vs
-    if ! vs="$(resolve_vault_sync)"; then
-        echo "VAULT: skip (no skills-vault — run vault sync.sh setup, or pass --skip-vault)"
+    if [ ! -x "$VAULT_MIRROR" ]; then
+        echo "VAULT: skip (missing vault-mirror.sh)"
         return 0
     fi
-    echo "=== skills-vault pre (pull + merge into agents) ==="
-    bash "$vs" sync || echo "VAULT: pre sync failed (continue bridge)"
+    if [ ! -f "${XDG_CONFIG_HOME:-$HOME/.config}/skills-bridge/vault.conf" ] && [ -z "${SKILLS_VAULT:-}" ]; then
+        echo "VAULT: skip (not configured — run: bash $VAULT_MIRROR setup <vault_path>)"
+        return 0
+    fi
+    echo "=== vault pre (pull + merge into agents) ==="
+    bash "$VAULT_MIRROR" sync || echo "VAULT: pre sync failed (continue bridge)"
 }
 
 vault_post() {
     [ "$SKIP_VAULT" = "true" ] && return 0
     [ "$DRY_RUN" = "true" ] && return 0
-    local vs
-    if ! vs="$(resolve_vault_sync)"; then
+    [ -x "$VAULT_MIRROR" ] || return 0
+    if [ ! -f "${XDG_CONFIG_HOME:-$HOME/.config}/skills-bridge/vault.conf" ] && [ -z "${SKILLS_VAULT:-}" ]; then
         return 0
     fi
     echo ""
-    echo "=== skills-vault post (mirror agents → vault + commit/push) ==="
-    bash "$vs" sync --commit || echo "VAULT: post sync/commit failed"
+    echo "=== vault post (mirror agents → vault + commit/push) ==="
+    bash "$VAULT_MIRROR" sync --commit || echo "VAULT: post sync/commit failed"
 }
 
 mkdir -p "$AGENTS_SKILLS"

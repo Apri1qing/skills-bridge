@@ -1,6 +1,6 @@
 ---
 name: skills-maintenance
-description: 一键更新并同步整个 skills 体系：skills CLI 更新（npx skills update）、Claude Code 插件更新，然后调用 sync-skills（内含 skills-vault pull→整理→镜像回仓）。当用户要求一键维护/更新整个 skills 体系、或运行 /skills-maintenance 时使用。
+description: 一键更新并同步整个 skills 体系：skills CLI 更新（npx skills update）、Claude Code 插件更新，然后调用 sync-skills（内含 vault-mirror pull→整理→镜像回仓）。当用户要求一键维护/更新整个 skills 体系、或运行 /skills-maintenance 时使用。
 ---
 
 # Skills Maintenance

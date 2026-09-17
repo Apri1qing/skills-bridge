@@ -6,9 +6,12 @@
 
 ## 与 skills-vault
 
-日常入口仍是 **本插件**（`/sync-skills` / `/skills-maintenance`），不是单独记 vault 命令。
+- **skills-vault**：只存 skill 内容（`skills/` + `exclude.txt`），无运维脚本
+- **本插件**：全部命令（`sync-skills.sh` + `vault-mirror.sh`）
 
-默认流程：`vault pull+合并` → bridge 整理宿主目录 → `agents` 全量镜像回 vault 并 push。`--skip-vault` 可关掉。需先在本机对 [skills-vault](https://github.com/Apri1qing/skills-vault) 跑过 `./scripts/sync.sh setup`。
+首次：`bash skills/sync-skills/scripts/vault-mirror.sh setup /path/to/skills-vault`  
+日常：`/sync-skills` 或 `/skills-maintenance`（默认 pull→整理→镜像回仓；`--skip-vault` 可关）
+
 
 ## 当前能力（含 Codex）
 

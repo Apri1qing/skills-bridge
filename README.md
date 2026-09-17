@@ -1,14 +1,11 @@
 ## With skills-vault
 
-User-facing entry remains **this plugin** (`/sync-skills` / `/skills-maintenance`).
+- **skills-vault**: content only (`skills/` + `exclude.txt`), no ops scripts
+- **this plugin**: all commands (`sync-skills.sh` + `vault-mirror.sh`)
 
-Default flow: vault pull+merge → bridge host cleanup → full-mirror agents back to vault (commit/push). Use `--skip-vault` to disable. Run `./scripts/sync.sh setup` once in [skills-vault](https://github.com/Apri1qing/skills-vault).
+First-time: `bash skills/sync-skills/scripts/vault-mirror.sh setup /path/to/skills-vault`  
+Daily: `/sync-skills` or `/skills-maintenance` (pull → bridge → mirror; `--skip-vault` to disable)
 
-# skills-bridge
-
-For people who use Claude Code alongside other agents: one copy of your skills, shared by every tool.
-
-[English](README.md) | [中文](README.zh-CN.md)
 
 ## What it does now (incl. Codex)
 
