@@ -15,6 +15,8 @@
 
 没配置 vault → 同步安静跳过。不要再给 Grok 单独开旁路。
 
+`/init-vault` 之后仓可能还是空的：再跑一次 **`/sync-skills`**，把本机 skill 灌进 vault 并 push。
+
 ## 它能做什么
 
 - **Claude**：插件纯 skill → 拷贝进 `~/.agents/skills`；仓库 → `~/.claude/skills` 软链

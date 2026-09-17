@@ -13,7 +13,9 @@ Treat every environment as a **peer**: your laptop, another PC, or a cloud box (
 - Any other machine/box: `git clone` the vault → **`/init-vault`** / `setup` and point the local skills dir at `~/.agents/skills` (laptop) or `/home/box/agent-data/workflows` (Grok box) → **`/sync-skills`**.
 - New skills on any peer: land in that machine’s skills dir → sync → push to vault; other peers sync to pull.
 
-No vault configured → sync skips it quietly. No special Grok-only side channel.
+No vault configured → sync skips it quietly. **Grok Bot’s cloud box is supported the same way** — treat it as another machine whose local skills folder is `workflows/` (not a separate pipe).
+
+After `/init-vault` the repo may be empty: run **`/sync-skills` once** to copy this machine’s skills into the vault and push.
 
 ## What it does
 

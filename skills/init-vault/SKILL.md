@@ -52,3 +52,12 @@ bash "$VM" setup ~/skills-vault /home/box/agent-data/workflows
 - 不要为 Grok 单独发明第二条旁路命令
 - 不要在普通 sync 里自动 init
 - box 若暂时不能 `gh`/clone 私库，用已有 vault 打包拷到 box 再 `setup`，效果相同
+
+## 下一步（必做）
+
+`/init-vault` **只建空架子**。要把本机已有 skill 灌进 vault：
+
+1. 跑 **`/sync-skills`**（不要加 `--skip-vault`）
+2. 它会把本机落点（电脑：`~/.agents/skills`；Grok box：`workflows/`）镜像进 vault，并 commit/push
+
+以后本机新装 skill，再跑同一次 `/sync-skills` 即可让其他节点（含 Grok）pull 到。
