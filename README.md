@@ -16,6 +16,7 @@ Treat every environment as a **peer**: your laptop, another PC, or a cloud box (
 No vault configured → sync skips it quietly. **Grok Bot’s cloud box is supported the same way** — treat it as another machine whose local skills folder is `workflows/` (not a separate pipe).
 
 After `/init-vault` the repo may be empty: run **`/sync-skills` once** to copy this machine’s skills into the vault and push.
+After `/init-vault`, the agent should ask whether to run `/sync-skills` **right away** to fill the vault (don’t leave you on an empty repo).
 
 ## What it does
 

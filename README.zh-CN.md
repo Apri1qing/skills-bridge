@@ -16,6 +16,7 @@
 没配置 vault → 同步安静跳过。不要再给 Grok 单独开旁路。
 
 `/init-vault` 之后仓可能还是空的：再跑一次 **`/sync-skills`**，把本机 skill 灌进 vault 并 push。
+`/init-vault` 成功后，agent 应马上问要不要立刻跑 `/sync-skills` 灌仓（别让用户停在空仓）。
 
 ## 它能做什么
 
