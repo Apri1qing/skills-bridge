@@ -4,14 +4,12 @@
 
 [English](README.md) | [中文](README.zh-CN.md)
 
-## 与 skills-vault
+## 与 skills-vault（可选）
 
 - **skills-vault**：只存 skill 内容（`skills/` + `exclude.txt`），无运维脚本
 - **本插件**：全部命令（`sync-skills.sh` + `vault-mirror.sh`）
-
-首次：`bash skills/sync-skills/scripts/vault-mirror.sh setup /path/to/skills-vault`  
-日常：`/sync-skills` 或 `/skills-maintenance`（默认 pull→整理→镜像回仓；`--skip-vault` 可关）
-
+- **创建/登记**：skill `/init-vault`（只有你主动用时才建，绝不自动）
+- **日常**：`/sync-skills` 或 `/skills-maintenance` **仅在已配置 vault 时**做镜像；未配置则静默跳过（`--skip-vault` 可强制跳过）
 
 ## 当前能力（含 Codex）
 
@@ -30,12 +28,13 @@
 
 更麻烦的是，**并非所有插件都能靠搬文件共享**：带 hooks/MCP/命令/agents 的功能型插件，其能力绑定在宿主机制上，skill 文件搬过去也是废纸。这部分插件想在其他 agent 用上，唯一的路是在对面装等价物——找没找得到、怎么装，以前全靠自己查。
 
-skills-bridge 把这两件事都接了：能搬的搬进所有工具读的**同一个仓库**（`~/.agents/skills/`——Codex、Cursor 和 agentskills 生态原生扫描的标准目录）；搬不了的，探测你本地在装的 agent、联网查等价装法、经你确认后装上。一共 2 个 skill：
+skills-bridge 把这两件事都接了：能搬的搬进所有工具读的**同一个仓库**（`~/.agents/skills/`——Codex、Cursor 和 agentskills 生态原生扫描的标准目录）；搬不了的，探测你本地在装的 agent、联网查等价装法、经你确认后装上。一共 3 个 skill：
 
 | Skill | 职责 |
 |---|---|
-| `/sync-skills` | Claude Code 与公共仓库之间的双向同步 |
+| `/sync-skills` | 宿主双向同步；若已配置 vault，顺带 pull/镜像 |
 | `/skills-maintenance` | 先更新一切，再同步 |
+| `/init-vault` | 显式创建或登记 skills-vault（可选多机镜像） |
 
 ## 安装
 
@@ -76,16 +75,23 @@ skills-bridge 把这两件事都接了：能搬的搬进所有工具读的**同�
 
 ```mermaid
 flowchart TB
-    W["② 公共仓库 ~/.agents/skills/<br/>（所有 skill 的总仓库）"]
     P["① Claude Code 插件<br/>~/.claude/plugins/"]
-    N["npx skills add<br/>（工具中立的安装器）"]
-    H["手动放入<br/>（自己写的、别处拷来的）"]
-    P -->|"复制 + marker（正向同步）"| W
+    N["npx skills add"]
+    H["手动放入"]
+    CX["Codex ~/.codex/skills<br/>（纯 skill 迁入）"]
+    W["② 公共仓库 ~/.agents/skills/<br/>（本机单一落点）"]
+    C["③ ~/.claude/skills/<br/>（给 Claude 的软链入口）"]
+    V["④ skills-vault git 仓<br/>（可选多机镜像）<br/>skills/ + exclude.txt"]
+    P -->|"复制 + marker"| W
     N --> W
     H --> W
-    W -->|"放同名软链接（反向同步）"| C["③ ~/.claude/skills/<br/>（Claude Code 唯一会看的目录）"]
-    W -->|"直接读"| X["Codex / Cursor / OpenCode…<br/>（它们自家插件的 skill 不进 ②）"]
+    CX -->|"迁入纯 skill"| W
+    W -->|"软链"| C
     C --> CC["Claude Code"]
+    W -->|"直接读"| X["Codex / Cursor / OpenCode…"]
+    W -.->|"已配置时：/sync-skills 镜像"| V
+    V -.->|"已配置时：pull 进仓库"| W
+    IV["/init-vault<br/>（仅显式执行）"] -.->|"创建 / 登记"| V
 ```
 
 读懂这张图，规则就都在里面了：
@@ -93,14 +99,14 @@ flowchart TB
 - **skill 进 ② 有三条路**：从 ① 复制（正向同步）；`npx skills add` 直接装进 ②；你手动放进 ②。**这就是"Codex/Cursor 生态装来的 skill 给 Claude 用"的通道**：只要进了 ②，Claude 就能用
 - **两个方向、两种机制**：① → ② 用**复制**（插件升级时目录名会变，软链接会断，副本任何时刻都完整可用）；② → ③ 用**软链接**（公共仓库的路径永不变，链接安全，仓库内容更新了链接自动跟随——`npx skills update` 刷新后 Claude 零动作即用新版）
 - **marker 标记** = 副本的身份证：正向同步靠它判断什么可以覆盖，反向同步靠它跳过 Claude 已通过插件真身加载的条目
+- **skills-vault 可选（④）**：用 `/init-vault` 建仓或登记；之后 `/sync-skills` 才会做 ② ↔ ④ 镜像。未配置则完全忽略 ④，不问不扰
 - **功能型插件不搬**（目录含 `hooks/`、`commands/`、`agents/`、`.mcp.json`）：对 Claude 插件和 Codex 插件一视同仁——过桥的办法是在对面装等价物，`/sync-skills` 会帮你查、帮你装
 
 ## 设计自洽
 
-skills-bridge 自己也是纯 skills 插件，它的两个 skill 同样被同步进公共仓库——任何 agent 都能触发同步，Claude Code 侧继续读插件真身，两边互不干扰。它对自己执行和别人一样的规则。
+skills-bridge 自己也是纯 skills 插件，它自己的 skill 同样被同步进公共仓库——任何 agent 都能触发同步，Claude Code 侧继续读插件真身，两边互不干扰。它对自己执行和别人一样的规则。
 
 ## 许可
 
 MIT
 
-Vault 可选：用 skill `init-vault` 创建/登记；`/sync-skills` 仅在已配置时镜像，否则静默跳过。

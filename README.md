@@ -1,11 +1,15 @@
-## With skills-vault
+# skills-bridge
+
+For people who use Claude Code **and** other agents: one shared library of skills.
+
+[English](README.md) | [中文](README.zh-CN.md)
+
+## With skills-vault (optional)
 
 - **skills-vault**: content only (`skills/` + `exclude.txt`), no ops scripts
 - **this plugin**: all commands (`sync-skills.sh` + `vault-mirror.sh`)
-
-First-time: `bash skills/sync-skills/scripts/vault-mirror.sh setup /path/to/skills-vault`  
-Daily: `/sync-skills` or `/skills-maintenance` (pull → bridge → mirror; `--skip-vault` to disable)
-
+- **create/register**: skill `/init-vault` (only when you ask — never auto)
+- **daily**: `/sync-skills` or `/skills-maintenance` mirrors **only if** a vault is already configured; otherwise vault is skipped silently (`--skip-vault` forces skip)
 
 ## What it does now (incl. Codex)
 
@@ -24,12 +28,13 @@ So a plugin you install in Claude Code is invisible to Codex, and vice versa —
 
 Worse, **not every plugin can be shared by moving files**: functional plugins (with hooks/MCP/commands/agents) bind their power to the host's machinery — copy the skill files elsewhere and they're dead weight. The only way to use them in another agent is to install the equivalent on that side, and until now, finding whether one exists and how to install it was all on you.
 
-skills-bridge handles both: what can move goes into **the same warehouse** every tool reads (`~/.agents/skills/` — the standard directory Codex, Cursor, and the agentskills ecosystem natively scan); what can't, it detects which agents you have installed, searches the web for each one's equivalent install method, and installs it after your confirmation. It ships 2 skills:
+skills-bridge handles both: what can move goes into **the same warehouse** every tool reads (`~/.agents/skills/` — the standard directory Codex, Cursor, and the agentskills ecosystem natively scan); what can't, it detects which agents you have installed, searches the web for each one's equivalent install method, and installs it after your confirmation. It ships 3 skills:
 
 | Skill | Job |
 |---|---|
-| `/sync-skills` | Two-way sync between Claude Code and the warehouse |
+| `/sync-skills` | Two-way host sync; if a vault is configured, also pull/mirror it |
 | `/skills-maintenance` | Update everything, then sync |
+| `/init-vault` | Explicitly create or register a skills-vault (optional multi-machine mirror) |
 
 ## Install
 
@@ -70,16 +75,23 @@ Three directories, and **the center is the warehouse — not any single tool**:
 
 ```mermaid
 flowchart TB
-    W["② Warehouse ~/.agents/skills/<br/>(the single home for all skills)"]
     P["① Claude Code plugins<br/>~/.claude/plugins/"]
-    N["npx skills add<br/>(a tool-neutral installer)"]
-    H["Placed by hand<br/>(your own, copied from elsewhere)"]
-    P -->|"copy + marker (forward sync)"| W
+    N["npx skills add"]
+    H["Placed by hand"]
+    CX["Codex ~/.codex/skills<br/>(pure skills migrated in)"]
+    W["② Warehouse ~/.agents/skills/<br/>(single home on this machine)"]
+    C["③ ~/.claude/skills/<br/>(symlinks for Claude)"]
+    V["④ skills-vault git repo<br/>(optional multi-machine mirror)<br/>skills/ + exclude.txt"]
+    P -->|"copy + marker"| W
     N --> W
     H --> W
-    W -->|"same-name symlink (reverse sync)"| C["③ ~/.claude/skills/<br/>(the only directory Claude Code reads)"]
-    W -->|"read directly"| X["Codex / Cursor / OpenCode…<br/>(their own plugins' skills never enter ②)"]
+    CX -->|"migrate pure skills"| W
+    W -->|"symlink"| C
     C --> CC["Claude Code"]
+    W -->|"read directly"| X["Codex / Cursor / OpenCode…"]
+    W -.->|"if configured: /sync-skills mirrors"| V
+    V -.->|"if configured: pull into warehouse"| W
+    IV["/init-vault<br/>(explicit setup only)"] -.->|"creates / registers"| V
 ```
 
 Understand this diagram and the rules are all inside it:
@@ -87,14 +99,14 @@ Understand this diagram and the rules are all inside it:
 - **A skill enters ② by one of three roads**: copied from ① (forward sync); installed straight into ② by `npx skills add`; or placed there by you. **This is the channel that lets skills from the Codex/Cursor ecosystem reach Claude**: once it's in ②, Claude can use it
 - **Two directions, two mechanisms**: ① → ② uses **copies** (plugin version directories move on upgrade, which breaks links; a copy is always complete and usable); ② → ③ uses **symlinks** (the warehouse path never changes, the link is safe, and it follows whatever the warehouse holds — `npx skills update` refreshes content and Claude gets the new version with zero action)
 - **The marker** = the copy's ID card: it's what forward sync uses to know what it may overwrite, and what reverse sync uses to skip entries Claude already loads through the plugin itself
+- **skills-vault is optional (④)**: use `/init-vault` once to create/register; `/sync-skills` then mirrors ② ↔ ④. If unset, ignore ④ entirely — no prompts
 - **Functional plugins don't cross** (directory contains `hooks/`, `commands/`, `agents/`, `.mcp.json`): same rule for Claude plugins and Codex plugins alike — the way across is installing the equivalent on the other side, which `/sync-skills` helps you find and do
 
 ## Self-consistent by design
 
-skills-bridge is itself a pure-skills plugin, so its own two skills sync into the warehouse like everything else — any agent can trigger the sync, while Claude Code keeps reading the plugin original, and neither side interferes with the other. It applies the same rules to itself as to everyone else.
+skills-bridge is itself a pure-skills plugin, so its own skills sync into the warehouse like everything else — any agent can trigger the sync, while Claude Code keeps reading the plugin original, and neither side interferes with the other. It applies the same rules to itself as to everyone else.
 
 ## License
 
 MIT
 
-Vault is optional: use skill `init-vault` to create/register; `/sync-skills` mirrors only when configured, otherwise skips silently.
