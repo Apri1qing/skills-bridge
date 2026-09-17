@@ -13,23 +13,21 @@ description: 同步 skills 到公共目录 ~/.agents/skills/：Claude 插件纯 
 | Claude / Codex bridge | 插件拷贝、Codex 迁入、Claude 软链 |
 | vault post | `vault-mirror.sh sync --commit`：镜像回仓并 push |
 
-## 命令
+## Commands
+
+Daily entry is the sync script (vault mirror runs automatically **only when already configured**):
 
 ```bash
-# <skill-dir>/scripts/
-bash sync-skills.sh                 # vault pre → bridge → vault post
-bash sync-skills.sh --dry-run
-bash sync-skills.sh --skip-vault    # 只 bridge
-bash sync-skills.sh list
-bash sync-skills.sh --force
-
-# vault 可选：未配置则跳过。从零建仓请用姊妹 skill `init-vault`
-bash vault-mirror.sh status
-bash vault-mirror.sh push-box [/path/to/workflows]   # 通常在 box 上
+# <skill-dir> = this skill's directory in the installed plugin
+bash <skill-dir>/scripts/sync-skills.sh
+bash <skill-dir>/scripts/sync-skills.sh --dry-run
+bash <skill-dir>/scripts/sync-skills.sh --skip-vault   # host sync only
+bash <skill-dir>/scripts/sync-skills.sh list
+bash <skill-dir>/scripts/sync-skills.sh --force        # only if user explicitly asks
 ```
 
-配置：`~/.config/skills-bridge/vault.conf`；或环境变量 `SKILLS_VAULT` / `AGENTS_SKILLS` / `BOX_WORKFLOWS`。  
-排除列表在 **vault 仓** 的 `exclude.txt`（数据，不是命令）。
+Multi-machine vault setup is **`init-vault`**, not this skill. Do not prompt about vault when none is configured.
+
 
 ## 判定
 

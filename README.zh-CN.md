@@ -4,14 +4,15 @@
 
 [English](README.md) | [中文](README.zh-CN.md)
 
-## 与 skills-vault（可选）
+## 可选：多台电脑共用同一套 skill
 
-- **skills-vault**：只存 skill 内容（`skills/` + `exclude.txt`），无运维脚本
-- **本插件**：全部命令（`sync-skills.sh` + `vault-mirror.sh`）
-- **创建/登记**：skill `/init-vault`（只有你主动用时才建，绝不自动）
-- **日常**：`/sync-skills` 或 `/skills-maintenance` **仅在已配置 vault 时**做镜像；未配置则静默跳过（`--skip-vault` 可强制跳过）
+如果你希望**好几台电脑上的 skill 库保持一致**，可以准备一个私有 git 备份（skills-vault），由本插件在本机 `~/.agents/skills` 和它之间同步。
 
-## 当前能力（含 Codex）
+- **不需要多机共用？完全不用管。** 单机同步照常工作。
+- 需要的话：跑一次 **`/init-vault`**（选本地目录；可选再建一个 GitHub 私有库）。
+- 配置好之后，平时的 **`/sync-skills`** / **`/skills-maintenance`** 会顺带拉取/推送这份备份。没配置过 → 同步时安静跳过，不会追问。
+
+## 它能做什么
 
 - **Claude**：插件纯 skill → 拷贝进 `~/.agents/skills`；仓库 → `~/.claude/skills` 软链
 - **Codex**：`~/.codex/skills` 里的纯 skill → **迁入** agents 并删除 `.codex` 实体（防双份）；`.system` 与绑宿主的留下；清掉 `.codex→.claude` 旁路软链
@@ -32,9 +33,9 @@ skills-bridge 把这两件事都接了：能搬的搬进所有工具读的**同�
 
 | Skill | 职责 |
 |---|---|
-| `/sync-skills` | 宿主双向同步；若已配置 vault，顺带 pull/镜像 |
+| `/sync-skills` | 让 Claude / Codex / 公共目录对齐（若已配置 vault，也同步到其他电脑） |
 | `/skills-maintenance` | 先更新一切，再同步 |
-| `/init-vault` | 显式创建或登记 skills-vault（可选多机镜像） |
+| `/init-vault` | 一次性：配置「多台电脑共用 skill」（可选） |
 
 ## 安装
 
@@ -99,7 +100,7 @@ flowchart TB
 - **skill 进 ② 有三条路**：从 ① 复制（正向同步）；`npx skills add` 直接装进 ②；你手动放进 ②。**这就是"Codex/Cursor 生态装来的 skill 给 Claude 用"的通道**：只要进了 ②，Claude 就能用
 - **两个方向、两种机制**：① → ② 用**复制**（插件升级时目录名会变，软链接会断，副本任何时刻都完整可用）；② → ③ 用**软链接**（公共仓库的路径永不变，链接安全，仓库内容更新了链接自动跟随——`npx skills update` 刷新后 Claude 零动作即用新版）
 - **marker 标记** = 副本的身份证：正向同步靠它判断什么可以覆盖，反向同步靠它跳过 Claude 已通过插件真身加载的条目
-- **skills-vault 可选（④）**：用 `/init-vault` 建仓或登记；之后 `/sync-skills` 才会做 ② ↔ ④ 镜像。未配置则完全忽略 ④，不问不扰
+- **④ 可选**：只有跑过 `/init-vault` 才有。之后同步会靠这份私有 git 把各台机器的 skill 目录对齐。从未设置？图里的 ④ 直接当不存在。
 - **功能型插件不搬**（目录含 `hooks/`、`commands/`、`agents/`、`.mcp.json`）：对 Claude 插件和 Codex 插件一视同仁——过桥的办法是在对面装等价物，`/sync-skills` 会帮你查、帮你装
 
 ## 设计自洽

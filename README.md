@@ -4,14 +4,15 @@ For people who use Claude Code **and** other agents: one shared library of skill
 
 [English](README.md) | [中文](README.zh-CN.md)
 
-## With skills-vault (optional)
+## Optional: share skills across your machines
 
-- **skills-vault**: content only (`skills/` + `exclude.txt`), no ops scripts
-- **this plugin**: all commands (`sync-skills.sh` + `vault-mirror.sh`)
-- **create/register**: skill `/init-vault` (only when you ask — never auto)
-- **daily**: `/sync-skills` or `/skills-maintenance` mirrors **only if** a vault is already configured; otherwise vault is skipped silently (`--skip-vault` forces skip)
+Want the **same skill library on more than one computer**? You can keep a private git copy (skills-vault) and let this plugin sync your machine’s `~/.agents/skills` with it.
 
-## What it does now (incl. Codex)
+- Don’t need that? **Ignore it.** Sync still works on one machine.
+- Want it? Run **`/init-vault`** once (pick a folder; optionally create a private GitHub repo).
+- After that, normal **`/sync-skills`** / **`/skills-maintenance`** will pull and push the mirror when the vault is configured. No vault configured → sync skips it quietly.
+
+## What it does
 
 - **Claude**: copy pure plugin skills into `~/.agents/skills`; symlink repo skills into `~/.claude/skills`
 - **Codex**: **migrate** pure skills from `~/.codex/skills` into agents and delete the `.codex` copy (no duplicate slash entries); keep `.system` / host-bound; remove `.codex → .claude` bypass symlinks
@@ -32,9 +33,9 @@ skills-bridge handles both: what can move goes into **the same warehouse** every
 
 | Skill | Job |
 |---|---|
-| `/sync-skills` | Two-way host sync; if a vault is configured, also pull/mirror it |
+| `/sync-skills` | Keep Claude / Codex / the shared folder in sync (and your other machines if you set up vault) |
 | `/skills-maintenance` | Update everything, then sync |
-| `/init-vault` | Explicitly create or register a skills-vault (optional multi-machine mirror) |
+| `/init-vault` | One-time: set up sharing skills across your computers (optional) |
 
 ## Install
 
@@ -99,7 +100,7 @@ Understand this diagram and the rules are all inside it:
 - **A skill enters ② by one of three roads**: copied from ① (forward sync); installed straight into ② by `npx skills add`; or placed there by you. **This is the channel that lets skills from the Codex/Cursor ecosystem reach Claude**: once it's in ②, Claude can use it
 - **Two directions, two mechanisms**: ① → ② uses **copies** (plugin version directories move on upgrade, which breaks links; a copy is always complete and usable); ② → ③ uses **symlinks** (the warehouse path never changes, the link is safe, and it follows whatever the warehouse holds — `npx skills update` refreshes content and Claude gets the new version with zero action)
 - **The marker** = the copy's ID card: it's what forward sync uses to know what it may overwrite, and what reverse sync uses to skip entries Claude already loads through the plugin itself
-- **skills-vault is optional (④)**: use `/init-vault` once to create/register; `/sync-skills` then mirrors ② ↔ ④. If unset, ignore ④ entirely — no prompts
+- **④ is optional**: only if you ran `/init-vault`. Then sync keeps your machines’ skill folders aligned via that private git repo. Never set up? The diagram’s ④ simply doesn’t apply.
 - **Functional plugins don't cross** (directory contains `hooks/`, `commands/`, `agents/`, `.mcp.json`): same rule for Claude plugins and Codex plugins alike — the way across is installing the equivalent on the other side, which `/sync-skills` helps you find and do
 
 ## Self-consistent by design

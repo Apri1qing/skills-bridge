@@ -14,14 +14,14 @@ usage:
   vault-mirror.sh init [vault_path] [--repo owner/name] [--no-github] [--agents path]
   vault-mirror.sh setup <vault_path> [agents_path]
   vault-mirror.sh sync [--commit]
-  vault-mirror.sh push-box [workflows_path]
+  vault-mirror.sh push-dir [target_dir]   # optional: copy vault skills/ to any directory
   vault-mirror.sh status
 
 init: create a content-only skills-vault (skills/ + exclude.txt + README + git).
       With gh auth, optionally create/push a private GitHub repo (--repo owner/name).
 setup: point at an existing vault (must already have origin).
 Config: $XDG_CONFIG_HOME/skills-bridge/vault.conf
-Env: SKILLS_VAULT, AGENTS_SKILLS, BOX_WORKFLOWS
+Env: SKILLS_VAULT, AGENTS_SKILLS, EXTRA_TARGET_DIR
 Vault layout: <vault>/skills/, <vault>/exclude.txt, README.md
 USAGE
   exit 2
@@ -39,7 +39,7 @@ CFG
 read_config() {
   VAULT_PATH="${SKILLS_VAULT:-}"
   AGENTS_PATH="${AGENTS_SKILLS:-${HOME}/.agents/skills}"
-  BOX_WORKFLOWS="${BOX_WORKFLOWS:-/home/box/agent-data/workflows}"
+  EXTRA_TARGET_DIR="${EXTRA_TARGET_DIR:-}"
   if [ -f "$CONFIG_FILE" ]; then
     # shellcheck disable=SC1090
     source "$CONFIG_FILE"
@@ -47,7 +47,7 @@ read_config() {
   # env wins when set
   [ -n "${SKILLS_VAULT:-}" ] && VAULT_PATH="$SKILLS_VAULT"
   [ -n "${AGENTS_SKILLS:-}" ] && AGENTS_PATH="$AGENTS_SKILLS"
-  [ -n "${BOX_WORKFLOWS:-}" ] && BOX_WORKFLOWS="$BOX_WORKFLOWS"
+  [ -n "${BOX_WORKFLOWS:-}" ] && EXTRA_TARGET_DIR="${EXTRA_TARGET_DIR:-}"
 
   if [ -z "${VAULT_PATH:-}" ]; then
     echo "VAULT_PATH unset — run: $0 init [path]   # or: $0 setup <vault_path>" >&2
@@ -368,10 +368,14 @@ cmd_sync() {
   fi
 }
 
-cmd_push_box() {
+cmd_push_dir() {
   read_config
   load_excludes
-  local dest="${1:-$BOX_WORKFLOWS}"
+  local dest="${1:-${EXTRA_TARGET_DIR:-}}"
+  if [ -z "$dest" ]; then
+    echo "usage: $0 push-dir <target_dir>" >&2
+    exit 2
+  fi
   if [ ! -d "$(dirname "$dest")" ] && [ ! -d "$dest" ]; then
     # soft check: parent may need mkdir
     :
@@ -394,7 +398,7 @@ case "$CMD" in
   init) shift; cmd_init "$@" ;;
   setup) shift; cmd_setup "$@" ;;
   sync) shift; cmd_sync "${1:-}" ;;
-  push-box) shift; cmd_push_box "${1:-}" ;;
+  push-dir|push-box) shift; cmd_push_box "${1:-}" ;;
   status) cmd_status ;;
   state) vault_state ;;
   *) usage ;;
