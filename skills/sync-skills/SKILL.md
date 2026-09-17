@@ -1,6 +1,6 @@
 ---
 name: sync-skills
-description: 同步 skills 到公共目录 ~/.agents/skills/：Claude 插件纯 skill 拷贝；Codex ~/.codex/skills 纯 skill 迁走；反向给 Claude 补软链。默认前后接 vault 全量镜像（命令在本插件 scripts/vault-mirror.sh；vault 仓只存内容）。绑宿主 SKIP。装/升级/卸载插件后、整理 Codex、或要求同步/预览/列出受管副本时使用。
+description: 同步 skills 到公共目录 ~/.agents/skills/：Claude 插件纯 skill 拷贝；Codex ~/.codex/skills 纯 skill 迁走；反向给 Claude 补软链。默认前后接 vault 全量镜像（命令在本插件 scripts/vault-mirror.sh（含 init 从零建仓）；vault 仓只存内容）。绑宿主 SKIP。装/升级/卸载插件后、整理 Codex、或要求同步/预览/列出受管副本时使用。
 ---
 
 # Sync Skills
@@ -23,7 +23,12 @@ bash sync-skills.sh --skip-vault    # 只 bridge
 bash sync-skills.sh list
 bash sync-skills.sh --force
 
-# 首次配置 vault（路径通用，勿写死）
+# 没有 vault 时从零搭建（content-only 仓）
+bash vault-mirror.sh init ~/skills-vault
+# 或指定私库名：bash vault-mirror.sh init ~/skills-vault --repo you/skills-vault
+# 只要本地 git：bash vault-mirror.sh init ~/skills-vault --no-github
+
+# 已有 vault 时只登记路径
 bash vault-mirror.sh setup /path/to/skills-vault
 bash vault-mirror.sh status
 bash vault-mirror.sh push-box [/path/to/workflows]   # 通常在 box 上

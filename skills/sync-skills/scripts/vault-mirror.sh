@@ -11,14 +11,18 @@ CMD="${1:-}"
 usage() {
   cat <<'USAGE' >&2
 usage:
+  vault-mirror.sh init [vault_path] [--repo owner/name] [--no-github] [--agents path]
   vault-mirror.sh setup <vault_path> [agents_path]
   vault-mirror.sh sync [--commit]
   vault-mirror.sh push-box [workflows_path]
   vault-mirror.sh status
 
-Config: $XDG_CONFIG_HOME/skills-bridge/vault.conf (or ~/.config/...)
-Env overrides: SKILLS_VAULT, AGENTS_SKILLS, BOX_WORKFLOWS
-Vault data: <vault>/skills/, <vault>/exclude.txt
+init: create a content-only skills-vault (skills/ + exclude.txt + README + git).
+      With gh auth, optionally create/push a private GitHub repo (--repo owner/name).
+setup: point at an existing vault (must already have origin).
+Config: $XDG_CONFIG_HOME/skills-bridge/vault.conf
+Env: SKILLS_VAULT, AGENTS_SKILLS, BOX_WORKFLOWS
+Vault layout: <vault>/skills/, <vault>/exclude.txt, README.md
 USAGE
   exit 2
 }
@@ -46,7 +50,7 @@ read_config() {
   [ -n "${BOX_WORKFLOWS:-}" ] && BOX_WORKFLOWS="$BOX_WORKFLOWS"
 
   if [ -z "${VAULT_PATH:-}" ]; then
-    echo "VAULT_PATH unset — run: $0 setup <vault_path>" >&2
+    echo "VAULT_PATH unset — run: $0 init [path]   # or: $0 setup <vault_path>" >&2
     exit 1
   fi
   SKILLS_DIR="$VAULT_PATH/skills"
@@ -104,6 +108,142 @@ rsync_to() {
     cp -a "$from/." "$to/"
     rm -rf "$to/.git" 2>/dev/null || true
   fi
+}
+
+
+cmd_init() {
+  local vault_arg=""
+  local repo=""
+  local no_github=0
+  local agents="${AGENTS_SKILLS:-$HOME/.agents/skills}"
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --repo)
+        shift
+        repo="${1:-}"
+        [ -n "$repo" ] || { echo "--repo needs owner/name" >&2; exit 1; }
+        shift
+        ;;
+      --no-github)
+        no_github=1
+        shift
+        ;;
+      --agents)
+        shift
+        agents="${1:-}"
+        [ -n "$agents" ] || { echo "--agents needs a path" >&2; exit 1; }
+        shift
+        ;;
+      -*)
+        echo "unknown flag: $1" >&2
+        exit 1
+        ;;
+      *)
+        if [ -z "$vault_arg" ]; then
+          vault_arg="$1"
+          shift
+        else
+          echo "unexpected arg: $1" >&2
+          exit 1
+        fi
+        ;;
+    esac
+  done
+  vault_arg="${vault_arg:-$HOME/skills-vault}"
+
+  if [ -d "$vault_arg/.git" ]; then
+    echo "already a git repo: $vault_arg — use setup instead, or pick another path" >&2
+    exit 1
+  fi
+  if [ -e "$vault_arg" ] && [ ! -d "$vault_arg" ]; then
+    echo "path exists and is not a directory: $vault_arg" >&2
+    exit 1
+  fi
+
+  mkdir -p "$vault_arg/skills" "$agents"
+  if [ ! -f "$vault_arg/exclude.txt" ]; then
+    cat > "$vault_arg/exclude.txt" <<'EXC'
+# Skill ids to skip from the multi-machine mirror (one per line).
+EXC
+  fi
+  if [ ! -f "$vault_arg/README.md" ]; then
+    cat > "$vault_arg/README.md" <<'README'
+# skills-vault
+
+Content-only private skill mirror for multiple machines.
+
+| Path | Role |
+|------|------|
+| `skills/<id>/` | Skill bodies |
+| `exclude.txt` | Skill ids excluded from mirroring |
+| `README.md` | This file |
+
+All commands live in **skills-bridge** (`vault-mirror.sh` / `/sync-skills`). Do not add ops scripts here.
+README
+  fi
+
+  git -C "$vault_arg" init -b main
+  # ignore local junk / secrets if someone drops them by mistake
+  if [ ! -f "$vault_arg/.gitignore" ]; then
+    cat > "$vault_arg/.gitignore" <<'GI'
+.DS_Store
+.env
+.env.*
+*.pem
+*.key
+credentials*
+GI
+  fi
+  git -C "$vault_arg" add -A
+  if ! git -C "$vault_arg" diff --cached --quiet; then
+    git -C "$vault_arg" -c user.email="${GIT_AUTHOR_EMAIL:-skills-bridge@local}" \
+      -c user.name="${GIT_AUTHOR_NAME:-skills-bridge}" \
+      commit -m "init: content-only skills-vault layout"
+  fi
+
+  if [ "$no_github" -eq 0 ]; then
+    if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
+      if [ -z "$repo" ]; then
+        local gh_user
+        gh_user="$(gh api user -q .login 2>/dev/null || true)"
+        repo="${gh_user:+$gh_user/}skills-vault"
+        repo="${repo#/}"
+        if [ -z "$gh_user" ]; then
+          repo="skills-vault"
+        fi
+      fi
+      echo "creating private GitHub repo: $repo"
+      if gh repo view "$repo" >/dev/null 2>&1; then
+        echo "remote repo exists — adding origin"
+        git -C "$vault_arg" remote remove origin 2>/dev/null || true
+        git -C "$vault_arg" remote add origin "$(gh repo view "$repo" --json url -q .url).git" 2>/dev/null \
+          || git -C "$vault_arg" remote add origin "https://github.com/${repo}.git"
+      else
+        gh repo create "$repo" --private --source="$vault_arg" --remote=origin --push
+      fi
+      if ! git -C "$vault_arg" remote get-url origin >/dev/null 2>&1; then
+        git -C "$vault_arg" remote add origin "https://github.com/${repo}.git"
+      fi
+      git -C "$vault_arg" push -u origin HEAD || echo "push failed — fix remote then: git -C $vault_arg push -u origin HEAD"
+    else
+      echo "gh not available/authenticated — local git only. Add origin later, then: $0 setup \"$vault_arg\""
+      write_config "$(cd "$vault_arg" && pwd)" "$agents"
+      echo "wrote local config (no origin yet). Add a remote before sync --commit."
+      echo "VAULT_PATH=$(cd "$vault_arg" && pwd)"
+      return 0
+    fi
+  else
+    echo "--no-github: local git only"
+  fi
+
+  # setup requires origin when we have one; if missing, still write config
+  if git -C "$vault_arg" remote get-url origin >/dev/null 2>&1; then
+    cmd_setup "$(cd "$vault_arg" && pwd)" "$agents"
+  else
+    write_config "$(cd "$vault_arg" && pwd)" "$agents"
+    echo "config → $CONFIG_FILE (no origin)"
+  fi
+  echo "init done: $(cd "$vault_arg" && pwd)"
 }
 
 cmd_setup() {
@@ -229,6 +369,7 @@ cmd_push_box() {
 }
 
 case "$CMD" in
+  init) shift; cmd_init "$@" ;;
   setup) shift; cmd_setup "$@" ;;
   sync) shift; cmd_sync "${1:-}" ;;
   push-box) shift; cmd_push_box "${1:-}" ;;
