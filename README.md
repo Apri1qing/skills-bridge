@@ -50,17 +50,18 @@ Not Claude-only. The repo is a standard skills package (`init-vault`, `sync-skil
 ### Any agent — `npx skills` (recommended)
 
 ```bash
-# list
-npx skills add Apri1qing/skills-bridge -l
-
-# install all three into ~/.agents/skills/
-npx skills add Apri1qing/skills-bridge -g --all
-
-# or pick skills
-npx skills add Apri1qing/skills-bridge -g -s init-vault -s sync-skills -s skills-maintenance -y
+npx skills add Apri1qing/skills-bridge
 ```
 
-Works for Codex, Cursor, Grok, and anything else that reads `~/.agents/skills` (or your agent’s skills root). If you also use Claude Code, run `/sync-skills` once afterward to refresh symlinks.
+Need it in the shared global skills dir (`~/.agents/skills/`):
+
+```bash
+npx skills add Apri1qing/skills-bridge -g
+```
+
+That installs the whole package (`init-vault`, `sync-skills`, `skills-maintenance`). Works for Codex, Cursor, Grok, and anything else that reads that skills root. If you also use Claude Code, run `/sync-skills` once afterward to refresh symlinks.
+
+To install only one skill from a repo, the usual pattern is `owner/repo@skill-name` (CLI also has advanced `-s` / `--all` flags — not needed for normal installs).
 
 ### Claude Code plugin (optional)
 
