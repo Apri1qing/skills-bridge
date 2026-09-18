@@ -45,7 +45,24 @@ skills-bridge 把这两件事都接了：能搬的搬进所有工具读的**同�
 
 ## 安装
 
-在 Claude Code 里：
+不只 Claude。仓库本身是标准 skills 包（`init-vault`、`sync-skills`、`skills-maintenance`）。
+
+### 任意 agent — `npx skills`（推荐）
+
+```bash
+# 看清单
+npx skills add Apri1qing/skills-bridge -l
+
+# 三个全装进 ~/.agents/skills/
+npx skills add Apri1qing/skills-bridge -g --all
+
+# 或只要某几个
+npx skills add Apri1qing/skills-bridge -g -s init-vault -s sync-skills -s skills-maintenance -y
+```
+
+Codex / Cursor / Grok 等读 `~/.agents/skills`（或各自 skill 根目录）的都能用。若同时用 Claude Code，装完再跑一次 `/sync-skills` 补软链即可。
+
+### Claude Code 插件（可选）
 
 ```
 /plugin marketplace add Apri1qing/skills-bridge

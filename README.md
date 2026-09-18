@@ -45,7 +45,24 @@ skills-bridge handles both: what can move goes into **the same warehouse** every
 
 ## Install
 
-In Claude Code:
+Not Claude-only. The repo is a standard skills package (`init-vault`, `sync-skills`, `skills-maintenance`).
+
+### Any agent — `npx skills` (recommended)
+
+```bash
+# list
+npx skills add Apri1qing/skills-bridge -l
+
+# install all three into ~/.agents/skills/
+npx skills add Apri1qing/skills-bridge -g --all
+
+# or pick skills
+npx skills add Apri1qing/skills-bridge -g -s init-vault -s sync-skills -s skills-maintenance -y
+```
+
+Works for Codex, Cursor, Grok, and anything else that reads `~/.agents/skills` (or your agent’s skills root). If you also use Claude Code, run `/sync-skills` once afterward to refresh symlinks.
+
+### Claude Code plugin (optional)
 
 ```
 /plugin marketplace add Apri1qing/skills-bridge
