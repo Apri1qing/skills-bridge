@@ -2,16 +2,20 @@
 # 同步：
 #   Claude 正向：在装插件纯 skills → ~/.agents/skills/（拷贝 + marker）
 #   Codex 正向：~/.codex/skills 纯 skills → ~/.agents/skills/（拷贝后删除 .codex 实体，避免双份）
+#   Claude 实体：~/.claude/skills 实体 skills → ~/.agents/skills/（迁入后原位补软链，避免双份）
 #   Claude 反向：~/.agents/skills/ → ~/.claude/skills/（软链入口）
 # 用法: sync-skills.sh [--force] [--dry-run] [--skip-vault] [list]
 # 默认：bridge 前后接 skills-vault（pull→整理→镜像回仓）；--skip-vault 关掉
 AGENTS_SKILLS="$HOME/.agents/skills"
 CLAUDE_PLUGINS="$HOME/.claude/plugins/cache"
+CLAUDE_SKILLS="$HOME/.claude/skills"
 CODEX_SKILLS="$HOME/.codex/skills"
 MARKER_FILE=".synced-from-plugin"
 STATE_FILE=".synced-plugin-state"
 CODEX_MARKER=".synced-from-codex"
 CODEX_STATE=".synced-codex-state"
+CLAUDE_MARKER=".synced-from-claude"
+CLAUDE_STATE=".synced-claude-state"
 FORCE_SYNC=false
 DRY_RUN=false
 LIST_ONLY=false
@@ -83,25 +87,7 @@ state_of() {
     echo "unknown|"
 }
 
-# 纯 skill 判定（Codex 用户目录）：无 hooks/commands/mcp；agents/ 至多只有 openai.yaml
-is_codex_host_bound() {
-    local d="$1"
-    local comp
-    for comp in hooks commands .mcp.json mcp; do
-        [ -e "$d/$comp" ] && return 0
-    done
-    if [ -d "$d/agents" ]; then
-        local extras
-        extras=$(find "$d/agents" -mindepth 1 -maxdepth 1 ! -name 'openai.yaml' ! -name '.*' 2>/dev/null | head -1)
-        [ -n "$extras" ] && return 0
-    fi
-    if [ -f "$d/SKILL.md" ] && grep -qE 'built-in `image_gen`|内置 `image_gen`|image_gen tool' "$d/SKILL.md" 2>/dev/null; then
-        return 0
-    fi
-    return 1
-}
-
-codex_fingerprint() {
+skill_fingerprint() {
     local d="$1"
     if [ -f "$d/SKILL.md" ]; then
         local h names
@@ -122,6 +108,10 @@ if [ "$LIST_ONLY" = "true" ]; then
     for d in "$AGENTS_SKILLS"/*/; do
         [ -f "$d$CODEX_MARKER" ] && echo "  $(basename "$d") <- $(cat "$d$CODEX_MARKER" | sed "s|$HOME|~|")"
     done
+    echo "=== 受 Claude 实体迁入管理的 skills ==="
+    for d in "$AGENTS_SKILLS"/*/; do
+        [ -f "$d$CLAUDE_MARKER" ] && echo "  $(basename "$d") <- $(cat "$d$CLAUDE_MARKER" | sed "s|$HOME|~|")"
+    done
     exit 0
 fi
 
@@ -131,13 +121,10 @@ echo "=== Claude 插件 → agents ==="
 while IFS= read -r p; do [ -n "$p" ] && find "$p" -name "SKILL.md" -path "*/skills/*" 2>/dev/null; done <<< "$installed_paths" | sort -V | while read -r skill_file; do
     skill_dir=$(dirname "$skill_file")
     rel=${skill_file#"$CLAUDE_PLUGINS"/}
-    case "$rel" in
-        docs/*|*/docs/*|*/.agents/*|*/.cursor/*|*/.claude/*) continue ;;
-    esac
     plugin_root=$(echo "$rel" | cut -d/ -f1-2)
     plugin_ver_dir=$(echo "$rel" | cut -d/ -f1-3)
     is_functional=false
-    for comp in hooks commands agents .mcp.json mcp; do
+    for comp in hooks commands agents .mcp.json; do
         [ -e "$CLAUDE_PLUGINS/$plugin_ver_dir/$comp" ] && is_functional=true
     done
     if [ "$is_functional" = "true" ]; then
@@ -149,7 +136,7 @@ while IFS= read -r p; do [ -n "$p" ] && find "$p" -name "SKILL.md" -path "*/skil
 
     target_dir="$AGENTS_SKILLS/$skill_name"
 
-    if [ -d "$target_dir" ] && [ ! -f "$target_dir/$MARKER_FILE" ] && [ ! -f "$target_dir/$CODEX_MARKER" ] && [ "$FORCE_SYNC" != "true" ]; then
+    if [ -d "$target_dir" ] && [ ! -f "$target_dir/$MARKER_FILE" ] && [ ! -f "$target_dir/$CODEX_MARKER" ] && [ ! -f "$target_dir/$CLAUDE_MARKER" ] && [ "$FORCE_SYNC" != "true" ]; then
         echo "SKIP: $skill_name （手动管理，--force 可覆盖）"
         continue
     fi
@@ -170,7 +157,7 @@ while IFS= read -r p; do [ -n "$p" ] && find "$p" -name "SKILL.md" -path "*/skil
     cp -r "$skill_dir" "$target_dir"
     echo "$skill_dir" > "$target_dir/$MARKER_FILE"
     echo "$plugin_state" > "$target_dir/$STATE_FILE"
-    rm -f "$target_dir/$CODEX_MARKER" "$target_dir/$CODEX_STATE"
+    rm -f "$target_dir/$CODEX_MARKER" "$target_dir/$CODEX_STATE" "$target_dir/$CLAUDE_MARKER" "$target_dir/$CLAUDE_STATE"
     echo "SYNC: $skill_name"
 done
 
@@ -229,15 +216,16 @@ if [ -d "$CODEX_SKILLS" ]; then
 
         [ -f "$skill_dir/SKILL.md" ] || { echo "SKIP-CODEX: $skill_name （无 SKILL.md）"; continue; }
 
-        if is_codex_host_bound "$skill_dir"; then
-            echo "SKIP-CODEX-BOUND: $skill_name （绑宿主，留在 .codex）"
+        # 依赖 Codex 内置 image_gen 工具的 skill，离开 Codex 无法工作
+        if grep -qE 'built-in `image_gen`|image_gen tool' "$skill_dir/SKILL.md" 2>/dev/null; then
+            echo "SKIP-CODEX-BOUND: $skill_name （依赖内置 image_gen，留在 .codex）"
             continue
         fi
 
         target_dir="$AGENTS_SKILLS/$skill_name"
-        fp=$(codex_fingerprint "$skill_dir")
+        fp=$(skill_fingerprint "$skill_dir")
 
-        if [ -d "$target_dir" ] && [ ! -f "$target_dir/$MARKER_FILE" ] && [ ! -f "$target_dir/$CODEX_MARKER" ] && [ "$FORCE_SYNC" != "true" ]; then
+        if [ -d "$target_dir" ] && [ ! -f "$target_dir/$MARKER_FILE" ] && [ ! -f "$target_dir/$CODEX_MARKER" ] && [ ! -f "$target_dir/$CLAUDE_MARKER" ] && [ "$FORCE_SYNC" != "true" ]; then
             echo "SKIP-CODEX: $skill_name （agents 手管，保留 .codex 源；--force 可覆盖）"
             continue
         fi
@@ -275,7 +263,7 @@ if [ -d "$CODEX_SKILLS" ]; then
         cp -R "$skill_dir" "$target_dir"
         echo "$HOME/.codex/skills/$skill_name" > "$target_dir/$CODEX_MARKER"
         echo "$fp" > "$target_dir/$CODEX_STATE"
-        rm -f "$target_dir/$MARKER_FILE" "$target_dir/$STATE_FILE"
+        rm -f "$target_dir/$MARKER_FILE" "$target_dir/$STATE_FILE" "$target_dir/$CLAUDE_MARKER" "$target_dir/$CLAUDE_STATE"
         rm -rf "$skill_dir"
         echo "MIGRATE-CODEX: $skill_name"
     done
@@ -284,8 +272,72 @@ else
 fi
 
 echo ""
+echo "=== Claude 实体 skills → agents（迁走，原位补软链）==="
+if [ -d "$CLAUDE_SKILLS" ]; then
+    for skill_dir in "$CLAUDE_SKILLS"/*/; do
+        [ -e "$skill_dir" ] || continue
+        skill_name=$(basename "$skill_dir")
+        case "$skill_name" in .*) continue ;; esac
+        entry="${skill_dir%/}"
+
+        # 软链交给后面的入口段管理（去重/断链/补链）
+        [ -L "$entry" ] && continue
+
+        [ -f "$skill_dir/SKILL.md" ] || { echo "SKIP-CLAUDE: $skill_name （无 SKILL.md）"; continue; }
+
+        target_dir="$AGENTS_SKILLS/$skill_name"
+        fp=$(skill_fingerprint "$skill_dir")
+
+        if [ -d "$target_dir" ] && [ ! -f "$target_dir/$MARKER_FILE" ] && [ ! -f "$target_dir/$CODEX_MARKER" ] && [ ! -f "$target_dir/$CLAUDE_MARKER" ] && [ "$FORCE_SYNC" != "true" ]; then
+            echo "SKIP-CLAUDE: $skill_name （agents 手管，保留 .claude 源；--force 可覆盖）"
+            continue
+        fi
+
+        if [ -f "$target_dir/$CLAUDE_STATE" ] && [ "$(cat "$target_dir/$CLAUDE_STATE")" = "$fp" ] && [ "$FORCE_SYNC" != "true" ]; then
+            if [ -d "$skill_dir" ]; then
+                if [ "$DRY_RUN" = "true" ]; then
+                    echo "WOULD REMOVE-CLAUDE: $skill_name （agents 已是最新，删 .claude 双份并补软链）"
+                else
+                    rm -rf "$skill_dir"
+                    ln -s "$AGENTS_SKILLS/$skill_name" "$CLAUDE_SKILLS/$skill_name"
+                    echo "REMOVE-CLAUDE: $skill_name （去双份 + 原位补软链）"
+                fi
+            else
+                echo "UNCHANGED-CLAUDE: $skill_name"
+            fi
+            continue
+        fi
+
+        if [ -f "$target_dir/$MARKER_FILE" ] && [ "$FORCE_SYNC" != "true" ]; then
+            if [ "$DRY_RUN" = "true" ]; then
+                echo "WOULD DEDUP-CLAUDE: $skill_name （agents 已有插件副本，删除 .claude 实体）"
+            else
+                rm -rf "$skill_dir"
+                echo "DEDUP-CLAUDE: $skill_name"
+            fi
+            continue
+        fi
+
+        if [ "$DRY_RUN" = "true" ]; then
+            echo "WOULD MIGRATE-CLAUDE: $skill_name -> ~/.agents/skills/ （拷贝后删除 .claude 实体，原位补软链）"
+            continue
+        fi
+
+        rm -rf "$target_dir"
+        cp -R "$skill_dir" "$target_dir"
+        echo "$HOME/.claude/skills/$skill_name" > "$target_dir/$CLAUDE_MARKER"
+        echo "$fp" > "$target_dir/$CLAUDE_STATE"
+        rm -f "$target_dir/$MARKER_FILE" "$target_dir/$STATE_FILE" "$target_dir/$CODEX_MARKER" "$target_dir/$CODEX_STATE"
+        rm -rf "$skill_dir"
+        ln -s "$AGENTS_SKILLS/$skill_name" "$CLAUDE_SKILLS/$skill_name"
+        echo "MIGRATE-CLAUDE: $skill_name （迁入 + 原位补软链）"
+    done
+else
+    echo "SKIP: ~/.claude/skills 不存在"
+fi
+
+echo ""
 echo "=== agents → Claude 软链入口 ==="
-CLAUDE_SKILLS="$HOME/.claude/skills"
 mkdir -p "$CLAUDE_SKILLS"
 
 for l in "$CLAUDE_SKILLS"/*; do
@@ -318,5 +370,5 @@ if [ "$DRY_RUN" = "true" ]; then
 else
     vault_post
     echo ""
-    echo "=== 同步完成：Claude 插件/Codex 纯 skill → $AGENTS_SKILLS；Claude 入口 → $CLAUDE_SKILLS（含 vault 镜像）==="
+    echo "=== 同步完成：Claude 插件/Codex 纯 skill/Claude 实体 → $AGENTS_SKILLS；Claude 入口 → $CLAUDE_SKILLS（含 vault 镜像）==="
 fi

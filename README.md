@@ -4,25 +4,35 @@ For people who use Claude Code **and** other agents: one shared library of skill
 
 [English](README.md) | [中文](README.zh-CN.md)
 
-## Optional: share skills across machines (and cloud boxes)
+## Optional: share skills across machines
 
-Treat every environment as a **peer**: your laptop, another PC, or a cloud box (e.g. Grok). They all talk to the **same private skills-vault**.
+Your laptop, another PC, and your Grok cloud box can all connect to the **same private skills-vault**.
 
-- Don’t need sharing? **Ignore vault.** Single-machine sync still works.
-- First machine: **`/init-vault`** (create the private git repo).
-- Any other machine/box: `git clone` the vault → **`/init-vault`** / `setup` and point the local skills dir at `~/.agents/skills` (laptop) or `/home/box/agent-data/workflows` (Grok box) → **`/sync-skills`**.
-- New skills on any peer: land in that machine’s skills dir → sync → push to vault; other peers sync to pull.
+**First machine:**
 
-No vault configured → sync skips it quietly. **Grok Bot’s cloud box is supported the same way** — treat it as another machine whose local skills folder is `workflows/` (not a separate pipe).
+1. Run `/init-vault` to create the private git repo
+2. Run `/sync-skills` once to fill the vault and push
 
-After `/init-vault` the repo may be empty: run **`/sync-skills` once** to copy this machine’s skills into the vault and push.
-After `/init-vault`, the agent should ask whether to run `/sync-skills` **right away** to fill the vault (don’t leave you on an empty repo).
+**Every other machine / Grok box:**
+
+1. `git clone` the vault
+2. Run `/init-vault` to register the local skills dir (`~/.agents/skills` on a computer, `/home/box/agent-data/workflows` on a Grok box)
+3. Run `/sync-skills`
+
+**Day to day:**
+
+- Installed a skill on some machine? Run `/sync-skills` there to push it up
+- On the other machines, run `/sync-skills` to pull it down
+
+Don't need sharing? Ignore the vault — when it isn't configured, sync skips it quietly and single-machine sync works as usual.
 
 ## What it does
 
-- **Claude**: copy pure plugin skills into `~/.agents/skills`; symlink repo skills into `~/.claude/skills`
-- **Codex**: **migrate** pure skills from `~/.codex/skills` into agents and delete the `.codex` copy (no duplicate slash entries); keep `.system` / host-bound; remove `.codex → .claude` bypass symlinks
-- Host-bound skills (hooks / MCP / built-in tools) stay out of the shared repo
+- **Claude → shared folder**: skills from pure-skills plugins are copied into `~/.agents/skills`, immediately usable by every other tool
+- **Shared folder → Claude**: skills that entered the folder without Claude Code get a symlink in `~/.claude/skills`, immediately usable by Claude Code
+- **Codex**: pure skills in `~/.codex/skills` migrate into the shared folder, leaving no duplicate behind
+- **Claude hand-placed skills**: entity skill dirs in `~/.claude/skills` also migrate into the shared folder, replaced in place by a symlink so Claude Code keeps working unchanged
+- Host-bound plugins (hooks / MCP / built-in tools) aren't moved by file — skills-bridge finds and installs the equivalent on the other side instead
 
 ## Why you need it
 
@@ -45,25 +55,13 @@ skills-bridge handles both: what can move goes into **the same warehouse** every
 
 ## Install
 
-Not Claude-only. The repo is a standard skills package (`init-vault`, `sync-skills`, `skills-maintenance`).
-
-### Any agent — `npx skills` (recommended)
-
-```bash
-npx skills add Apri1qing/skills-bridge
-```
-
-Need it in the shared global skills dir (`~/.agents/skills/`):
+### `npx skills`
 
 ```bash
 npx skills add Apri1qing/skills-bridge -g
 ```
 
-That installs the whole package (`init-vault`, `sync-skills`, `skills-maintenance`). Works for Codex, Cursor, Grok, and anything else that reads that skills root. If you also use Claude Code, run `/sync-skills` once afterward to refresh symlinks.
-
-To install only one skill from a repo, the usual pattern is `owner/repo@skill-name` (CLI also has advanced `-s` / `--all` flags — not needed for normal installs).
-
-### Claude Code plugin (optional)
+### Claude Code plugin
 
 ```
 /plugin marketplace add Apri1qing/skills-bridge
@@ -74,15 +72,15 @@ To install only one skill from a repo, the usual pattern is `owner/repo@skill-na
 
 Run it after installing, updating, or uninstalling a Claude Code plugin, or after `npx skills add`. One command, both directions:
 
-**Forward (Claude plugins → warehouse).** Skills from pure-skills plugins are copied into the warehouse, immediately usable by Codex and friends. Each copy carries a `.synced-from-plugin` marker recording its source — only marker-holders may be overwritten or cleaned; anything you placed by hand is never touched. Copies of uninstalled plugins are cleaned up.
+**Forward (Claude plugins → warehouse).** Skills from pure-skills plugins are copied into the warehouse, immediately usable by Codex and friends. Each copy carries a `.synced-from-plugin` marker recording its source — only marker-holders may be overwritten or cleaned; anything you placed in the warehouse by hand is never touched. Copies of uninstalled plugins are cleaned up.
 
-**Reverse (warehouse → Claude).** Skills that entered the warehouse without going through Claude Code — installed by `npx skills add`, written by hand — get a symlink entry in `~/.claude/skills/`, so Claude Code can use them immediately. Duplicate and dead entries are removed.
+**Reverse (warehouse → Claude).** Skills that entered the warehouse without going through Claude Code — installed by `npx skills add`, written by hand — get a symlink entry in `~/.claude/skills/`, so Claude Code can use them immediately. Duplicate and dead entries are removed. And in the other direction, entity skills you placed by hand in `~/.claude/skills/` migrate into the warehouse, replaced in place by a symlink.
 
-**Functional plugins (with hooks/MCP/commands/agents) don't cross.** Their skills are dead weight outside the host, so the script skips them — and the model picks up where the script stops: it detects which other agents you actually have installed (Codex, Gemini, …), searches the web for each one's equivalent install method, and installs it after your confirmation. It also flags synced skills whose content only makes sense inside Claude Code, suggesting them for the exclusion list.
+**Functional plugins (with hooks/MCP/commands/agents) don't cross.** Their skills are dead weight outside the host, so the script skips them and installs the equivalent instead: it detects which other agents you actually have installed (Codex, Gemini, …), searches the web for each one's equivalent install method, and installs it after your confirmation. It also flags synced skills whose content only makes sense inside Claude Code, suggesting them for the exclusion list.
 
 Typical case: `frontend-slides` goes 1.0 → 2.1. Claude Code reads the plugin directory and uses the new version immediately, but Codex reads the *copy* in the warehouse, which doesn't change by itself — run `/sync-skills` and every copy is refreshed.
 
-Just ask in natural language: want a preview of what it would do, or only a list of which skills are managed copies — say so, and the model picks the right way to run it.
+Want a preview of what it would do, or just a list of which skills are managed copies? Ask in natural language and the model picks the right way to run it.
 
 ## `/skills-maintenance` — update everything
 
@@ -115,6 +113,7 @@ flowchart TB
     H --> W
     CX --> W
     W -->|"symlink"| C
+    C -->|"entities migrate"| W
     C --> CC["Claude Code"]
     W -->|"read directly"| X["Codex / Cursor / …"]
     W <-.->|"when configured: /sync-skills"| V
@@ -127,9 +126,11 @@ Understand this diagram and the rules are all inside it:
 
 - **A skill enters ② by one of three roads**: copied from ① (forward sync); installed straight into ② by `npx skills add`; or placed there by you. **This is the channel that lets skills from the Codex/Cursor ecosystem reach Claude**: once it's in ②, Claude can use it
 - **Two directions, two mechanisms**: ① → ② uses **copies** (plugin version directories move on upgrade, which breaks links; a copy is always complete and usable); ② → ③ uses **symlinks** (the warehouse path never changes, the link is safe, and it follows whatever the warehouse holds — `npx skills update` refreshes content and Claude gets the new version with zero action)
+- **Codex pure skills get migrated**: copied into ②, then the `~/.codex/skills` original is deleted (no duplicate slash entries); `.system` and host-bound skills stay put; `.codex → .claude` bypass symlinks are removed
+- **Entity skills in `~/.claude/skills` get migrated too**: copied into ②, original deleted, symlink left in place (the ③ entry) so Claude Code notices nothing; when the warehouse already has a hand-managed or plugin copy of the same name, the `.claude` source is kept or deduped. Entities in the Claude user skills dir are always treated as pure skills
 - **The marker** = the copy's ID card: it's what forward sync uses to know what it may overwrite, and what reverse sync uses to skip entries Claude already loads through the plugin itself
 - **④ is optional**: only if you ran `/init-vault`. Then sync keeps your machines’ skill folders aligned via that private git repo. Never set up? The diagram’s ④ simply doesn’t apply.
-- **Functional plugins don't cross** (directory contains `hooks/`, `commands/`, `agents/`, `.mcp.json`): same rule for Claude plugins and Codex plugins alike — the way across is installing the equivalent on the other side, which `/sync-skills` helps you find and do
+- **Functional plugins don't cross** (directory contains `hooks/`, `commands/`, `agents/`, `.mcp.json`): their skills are dead weight outside the host — the way across is installing the equivalent on the other side, which `/sync-skills` helps you find and do
 
 ## Self-consistent by design
 
@@ -138,4 +139,3 @@ skills-bridge is itself a pure-skills plugin, so its own skills sync into the wa
 ## License
 
 MIT
-

@@ -4,25 +4,35 @@
 
 [English](README.md) | [中文](README.zh-CN.md)
 
-## 可选：多台机器共用同一套 skill（含云端 box）
+## 可选：多台机器共用同一套 skill
 
-把每台环境都当成**对等节点**：笔记本、另一台电脑、云端 box（例如 Grok）都连**同一个私有 skills-vault**。
+笔记本、另一台电脑、Grok 云端 box，都可以连到**同一个私有 skills-vault**。
 
-- **不需要共享？完全不用管 vault。** 单机同步照常。
-- 第一台：跑 **`/init-vault`** 建私有 git 仓。
-- 其他机器/box：`git clone` vault → **`/init-vault`** / `setup`，本机落点指到 `~/.agents/skills`（电脑）或 `/home/box/agent-data/workflows`（Grok box）→ 再跑 **`/sync-skills`**。
-- 任意节点上新装的 skill：进本机落点 → sync → push；其他节点再 sync 即可更新。
+**第一台机器：**
 
-没配置 vault → 同步安静跳过。不要再给 Grok 单独开旁路。
+1. 跑 `/init-vault`，创建私有 git 仓
+2. 再跑一次 `/sync-skills`，把本机 skill 灌进仓并 push
 
-`/init-vault` 之后仓可能还是空的：再跑一次 **`/sync-skills`**，把本机 skill 灌进 vault 并 push。
-`/init-vault` 成功后，agent 应马上问要不要立刻跑 `/sync-skills` 灌仓（别让用户停在空仓）。
+**其他机器 / Grok box：**
+
+1. `git clone` vault 仓库
+2. 跑 `/init-vault`，登记本机 skill 落点（电脑是 `~/.agents/skills`，Grok box 是 `/home/box/agent-data/workflows`）
+3. 跑 `/sync-skills`
+
+**之后的日常：**
+
+- 任何一台新装了 skill：在那台跑 `/sync-skills` 推上去
+- 其他机器：跑 `/sync-skills` 拉下来
+
+不需要多机共享？完全不用管 vault——没配置时同步会自动跳过它，单机照常。
 
 ## 它能做什么
 
-- **Claude**：插件纯 skill → 拷贝进 `~/.agents/skills`；仓库 → `~/.claude/skills` 软链
-- **Codex**：`~/.codex/skills` 里的纯 skill → **迁入** agents 并删除 `.codex` 实体（防双份）；`.system` 与绑宿主的留下；清掉 `.codex→.claude` 旁路软链
-- 绑宿主（hooks / MCP / 内置工具等）不进公共仓库
+- **Claude → 公共仓库**：插件里的纯 skill 复制进 `~/.agents/skills`，其他工具立刻能用
+- **公共仓库 → Claude**：仓库里的 skill 软链进 `~/.claude/skills`，Claude Code 立刻能用
+- **Codex**：`~/.codex/skills` 里的纯 skill 迁进公共仓库，不留双份
+- **Claude 手放实体**：`~/.claude/skills` 里的实体 skill 同样迁进公共仓库，原位换成软链，Claude Code 无感继续用
+- 绑宿主的功能型插件（hooks / MCP / 命令）不搬文件，改为帮你在对面装等价物
 
 ## 为什么需要它
 
@@ -33,9 +43,9 @@
 
 于是 Claude Code 装的插件 Codex 看不见，反过来也一样——每个工具一个库，装两遍、维护两遍。
 
-更麻烦的是，**并非所有插件都能靠搬文件共享**：带 hooks/MCP/命令/agents 的功能型插件，其能力绑定在宿主机制上，skill 文件搬过去也是废纸。这部分插件想在其他 agent 用上，唯一的路是在对面装等价物——找没找得到、怎么装，以前全靠自己查。
+更麻烦的是，**并非所有插件都能靠搬文件共享**：带 hooks/MCP/命令/agents 的功能型插件，其能力绑定在宿主机制上，skill 文件搬过去也是废纸。这部分插件想在其他 agent 用上，唯一的路是在对面装等价物——找不找得到、怎么装，以前全靠自己查。
 
-skills-bridge 把这两件事都接了：能搬的搬进所有工具读的**同一个仓库**（`~/.agents/skills/`——Codex、Cursor 和 agentskills 生态原生扫描的标准目录）；搬不了的，探测你本地在装的 agent、联网查等价装法、经你确认后装上。一共 3 个 skill：
+skills-bridge 把这两件事都接了：能搬的搬进所有工具读的**同一个仓库**（`~/.agents/skills/`——Codex、Cursor 和 agentskills 生态原生扫描的标准目录）；搬不了的，探测本地装了哪些 agent、联网查等价装法、经你确认后装上。一共 3 个 skill：
 
 | Skill | 职责 |
 |---|---|
@@ -45,25 +55,13 @@ skills-bridge 把这两件事都接了：能搬的搬进所有工具读的**同�
 
 ## 安装
 
-不只 Claude。仓库本身是标准 skills 包（`init-vault`、`sync-skills`、`skills-maintenance`）。
-
-### 任意 agent — `npx skills`（推荐）
-
-```bash
-npx skills add Apri1qing/skills-bridge
-```
-
-要装到全局公共目录（`~/.agents/skills/`）再加 `-g`：
+### `npx skills`
 
 ```bash
 npx skills add Apri1qing/skills-bridge -g
 ```
 
-会装上整包（`init-vault`、`sync-skills`、`skills-maintenance`）。Codex / Cursor / Grok 等读该 skill 根目录的都能用。若同时用 Claude Code，装完再跑一次 `/sync-skills` 补软链即可。
-
-只要仓库里某一个 skill，网上常见写法是 `owner/repo@skill-name`（CLI 另有 `-s` / `--all` 进阶选项，日常安装不用写）。
-
-### Claude Code 插件（可选）
+### Claude Code 插件
 
 ```
 /plugin marketplace add Apri1qing/skills-bridge
@@ -74,15 +72,15 @@ npx skills add Apri1qing/skills-bridge -g
 
 装/升级/卸载 Claude Code 插件后，或 `npx skills add` 之后，跑一次。一条命令，两个方向：
 
-**正向（Claude 插件 → 仓库）。** 纯 skills 插件的 skill 复制进公共仓库，Codex 等工具即刻可用。每个副本带 `.synced-from-plugin` marker 记录来源——只有带 marker 的才允许被覆盖和清理，你手动放的永远不被碰。卸载插件的副本一并清理。
+**正向（Claude 插件 → 仓库）。** 纯 skills 插件的 skill 复制进公共仓库，Codex 等工具即刻可用。每个副本带 `.synced-from-plugin` marker 记录来源——只有带 marker 的才允许被覆盖和清理，你手动放进仓库的永远不被碰。卸载插件的副本一并清理。
 
-**反向（仓库 → Claude）。** 不经 Claude Code 进仓库的 skill——`npx skills add` 装的、手写的——补上 `~/.claude/skills/` 软链接入口，Claude Code 马上可用。双份入口和断链一并清掉。
+**反向（仓库 → Claude）。** 不经 Claude Code 进仓库的 skill——`npx skills add` 装的、手写的——补上 `~/.claude/skills/` 软链接入口，Claude Code 马上可用。双份入口和断链一并清掉。反过来，你手动放在 `~/.claude/skills/` 的实体 skill 也会被迁进公共仓库，原位换成软链。
 
-**功能型插件（带 hooks/MCP/命令/agents）不搬。** 其 skills 离开宿主就是废纸，脚本直接跳过——脚本停下的地方由模型接手：探测本地实际在装的其他 agent（Codex、Gemini 等），联网查各家的等价安装方式，经你确认后装上。同步进来的 skill 里内容只对 Claude Code 有意义的，也会被点名建议进排除名单。
+**功能型插件（带 hooks/MCP/命令/agents）不搬。** 其 skills 离开宿主就是废纸，脚本直接跳过，转而帮你装等价物：探测本地实际在装的其他 agent（Codex、Gemini 等），联网查各家的等价安装方式，经你确认后装上。内容只对 Claude Code 有意义的 skill，也会被点名建议进排除名单。
 
 典型场景：`frontend-slides` 从 1.0 升到 2.1。Claude Code 直接读插件目录、马上用新版，但 Codex 读的是仓库里的*副本*、不会自己变——跑一次 `/sync-skills`，所有副本立刻刷新。
 
-用自然语言提要求就行：想先看看会做什么、只想列出哪些 skill 是受管副本，直接说，模型会选对应的执行方式。
+想先看看会做什么、只想列出哪些 skill 是受管副本？直接用自然语言说，模型会选对应的执行方式。
 
 ## `/skills-maintenance` — 一键更新
 
@@ -115,6 +113,7 @@ flowchart TB
     H --> W
     CX --> W
     W -->|"软链"| C
+    C -->|"实体迁入"| W
     C --> CC["Claude Code"]
     W -->|"直接读"| X["Codex / Cursor / …"]
     W <-.->|"已配置时：/sync-skills"| V
@@ -127,9 +126,11 @@ flowchart TB
 
 - **skill 进 ② 有三条路**：从 ① 复制（正向同步）；`npx skills add` 直接装进 ②；你手动放进 ②。**这就是"Codex/Cursor 生态装来的 skill 给 Claude 用"的通道**：只要进了 ②，Claude 就能用
 - **两个方向、两种机制**：① → ② 用**复制**（插件升级时目录名会变，软链接会断，副本任何时刻都完整可用）；② → ③ 用**软链接**（公共仓库的路径永不变，链接安全，仓库内容更新了链接自动跟随——`npx skills update` 刷新后 Claude 零动作即用新版）
+- **Codex 纯 skill 会被迁走**：拷进 ② 后删除 `~/.codex/skills` 里的原目录（防双份）；`.system` 系统 skill 和绑宿主的留在原地；指向 `.claude` 的旁路软链一并清掉
+- **`~/.claude/skills` 的实体同样会被迁走**：拷进 ② 后删除原目录、原位补软链（即 ③ 的入口），Claude Code 无感；agents 里已有手管同名或插件副本时保留 `.claude` 源或去重。Claude 用户 skill 目录里的实体一律按纯 skill 处理
 - **marker 标记** = 副本的身份证：正向同步靠它判断什么可以覆盖，反向同步靠它跳过 Claude 已通过插件真身加载的条目
 - **④ 可选**：只有跑过 `/init-vault` 才有。之后同步会靠这份私有 git 把各台机器的 skill 目录对齐。从未设置？图里的 ④ 直接当不存在。
-- **功能型插件不搬**（目录含 `hooks/`、`commands/`、`agents/`、`.mcp.json`）：对 Claude 插件和 Codex 插件一视同仁——过桥的办法是在对面装等价物，`/sync-skills` 会帮你查、帮你装
+- **功能型插件不搬**（目录含 `hooks/`、`commands/`、`agents/`、`.mcp.json`）：其 skills 离开宿主就是废纸——过桥的办法是在对面装等价物，`/sync-skills` 会帮你查、帮你装
 
 ## 设计自洽
 
@@ -138,4 +139,3 @@ skills-bridge 自己也是纯 skills 插件，它自己的 skill 同样被同步
 ## 许可
 
 MIT
-
