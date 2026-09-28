@@ -89,8 +89,6 @@ npx skills add Apri1qing/skills-bridge -g
    要，就走 /init-vault 引导；不要就到此为止，无需任何配置。
 ```
 
-你的 agent 读不了网址（比如离线的 box）？把本段落剩下的部分直接贴给它。它会带你走这三步：
-
 用户把这段指给你看，就是想让你替他把 skills-bridge 配好。三步。
 
 **1. 知道自己在装什么。** skills-bridge 让所有 agent 共用一个 skill 库（`~/.agents/skills`）：给某个 agent 装的 skill 其他 agent 也能用（`/sync-skills` 双向对齐）；`/skills-maintenance` 一键更新一切；可选的私有 git vault 让同一个库跟着用户跨机器走。
