@@ -14,6 +14,7 @@ usage:
   vault-mirror.sh init [vault_path] [--repo owner/name] [--no-github] [--agents path]
   vault-mirror.sh setup <vault_path> [agents_path]
   vault-mirror.sh sync [--commit]
+  vault-mirror.sh pull                    # fetch only: vault → agents, never writes the vault
   vault-mirror.sh push-dir [target_dir]   # optional: copy vault skills/ to any directory
   vault-mirror.sh status
 
@@ -47,7 +48,6 @@ read_config() {
   # env wins when set
   [ -n "${SKILLS_VAULT:-}" ] && VAULT_PATH="$SKILLS_VAULT"
   [ -n "${AGENTS_SKILLS:-}" ] && AGENTS_PATH="$AGENTS_SKILLS"
-  [ -n "${BOX_WORKFLOWS:-}" ] && EXTRA_TARGET_DIR="${EXTRA_TARGET_DIR:-}"
 
   if [ -z "${VAULT_PATH:-}" ]; then
     echo "VAULT_PATH unset — run: $0 init [path]   # or: $0 setup <vault_path>" >&2
@@ -370,6 +370,40 @@ cmd_sync() {
   fi
 }
 
+cmd_pull() {
+  read_config
+  load_excludes
+  if [ ! -d "$AGENTS_PATH" ]; then
+    echo "agents path missing: $AGENTS_PATH" >&2
+    exit 1
+  fi
+  if [ ! -d "$VAULT_PATH/.git" ]; then
+    echo "vault is not a git repo: $VAULT_PATH" >&2
+    exit 1
+  fi
+
+  echo "== git pull =="
+  if ! git -C "$VAULT_PATH" pull --ff-only 2>/dev/null && ! git -C "$VAULT_PATH" pull --rebase 2>/dev/null; then
+    echo "git pull skipped/failed (offline or no credentials) — continue with local vault"
+  fi
+
+  echo "== vault → agents (fetch only, vault untouched) =="
+  local name dir
+  for dir in "$SKILLS_DIR"/*; do
+    [ -d "$dir" ] || continue
+    name="$(basename "$dir")"
+    if is_excluded "$name"; then
+      echo "exclude (skip download): $name"
+      continue
+    fi
+    has_skill_md "$dir" || { echo "skip (no SKILL.md): $name"; continue; }
+    mkdir -p "$AGENTS_PATH/$name"
+    rsync_to "$dir" "$AGENTS_PATH/$name" "delete"
+    echo "↓ $name"
+  done
+  echo "== pull done (no upload, no commit) =="
+}
+
 cmd_push_dir() {
   read_config
   load_excludes
@@ -400,7 +434,8 @@ case "$CMD" in
   init) shift; cmd_init "$@" ;;
   setup) shift; cmd_setup "$@" ;;
   sync) shift; cmd_sync "${1:-}" ;;
-  push-dir|push-box) shift; cmd_push_box "${1:-}" ;;
+  pull) cmd_pull ;;
+  push-dir) shift; cmd_push_dir "${1:-}" ;;
   status) cmd_status ;;
   state) vault_state ;;
   *) usage ;;
