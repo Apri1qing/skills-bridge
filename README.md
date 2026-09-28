@@ -23,6 +23,14 @@ Your laptop, another PC, and your Grok cloud box can all connect to the **same p
 
 - Installed a skill on some machine? Run `/sync-skills` there to push it up
 - On the other machines, run `/sync-skills` to pull it down
+- A machine that only consumes (e.g. a Grok box that never pushes) can run `vault-mirror.sh pull` — fetch only, never writes the vault
+
+**Merge rules** — what sync does when both sides have changed:
+
+- The vault carries `skills-lock.json`, a per-skill provenance manifest (where each skill came from: `npx`, a Claude plugin, or hand-written). Vault-sourced skills are backfilled into the machine-local skills lock, so `npx skills update` recognises them everywhere
+- `npx`-installed skills merge by lock identity: only the remote changed → remote wins (a stale machine can't clobber a newer vault); both changed → reported as a conflict, local wins, the other version stays in git history
+- Claude-plugin skills follow the installed plugin — update the plugin (or run `/skills-maintenance`), then sync
+- Hand-written skills are last-syncer-wins; the losing version is recoverable from the vault's git history
 
 Don't need sharing? Ignore the vault — when it isn't configured, sync skips it quietly and single-machine sync works as usual.
 
@@ -67,6 +75,37 @@ npx skills add Apri1qing/skills-bridge -g
 /plugin marketplace add Apri1qing/skills-bridge
 /plugin install skills-bridge@skills-bridge
 ```
+
+## For agents
+
+A user pointing you at this section wants you to set skills-bridge up for them. Three steps.
+
+**1. Know what you're installing.** skills-bridge keeps one shared skill library (`~/.agents/skills`) consistent across agents: skills installed for one agent become usable by the others (`/sync-skills` reconciles both directions), `/skills-maintenance` updates everything in one go, and an optional private git vault replicates the same library across the user's machines.
+
+**2. Install for your environment, then verify:**
+
+| You are | Install | Verify |
+|---|---|---|
+| Claude Code | `/plugin marketplace add Apri1qing/skills-bridge`, then `/plugin install skills-bridge@skills-bridge` | `/sync-skills` runs |
+| Codex, or any agent reading `~/.agents/skills` | `npx skills add Apri1qing/skills-bridge -g` | `~/.agents/skills/sync-skills` exists |
+| Grok Bot cloud box | the commands below | the skill dirs appear under `/home/box/agent-data/workflows` |
+
+A Grok Bot box has no plugin system and no guaranteed Node — the install is plain git + cp (bash and git are the only requirements):
+
+```bash
+git clone https://github.com/Apri1qing/skills-bridge.git ~/skills-bridge
+mkdir -p /home/box/agent-data/workflows
+cp -r ~/skills-bridge/skills/* /home/box/agent-data/workflows/
+```
+
+Update later with `git -C ~/skills-bridge pull && cp -r ~/skills-bridge/skills/* /home/box/agent-data/workflows/`. On a box `/skills-maintenance` does not apply (its two update sources don't exist there); day-to-day is `/sync-skills`, or `vault-mirror.sh pull` for fetch-only.
+
+**3. Ask the user one question: "Share this skill library across your machines?"**
+
+- **Yes** → run the `/init-vault` onboarding: create a private vault (`bash <plugin>/skills/sync-skills/scripts/vault-mirror.sh init ~/skills-vault --repo OWNER/skills-vault`), or clone the user's existing vault and register this machine's skills dir (`bash <plugin>/skills/sync-skills/scripts/vault-mirror.sh setup ~/skills-vault <skills-dir>` — `/home/box/agent-data/workflows` on a Grok box). Then run `/sync-skills` once to fill or pull the vault.
+- **No** → done. Single-machine sync is complete without the vault; nothing to configure.
+
+Close by telling the user the day-to-day in one line: `/sync-skills` after installing or updating skills anywhere, `/skills-maintenance` to update everything.
 
 ## `/sync-skills` — two-way sync
 

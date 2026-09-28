@@ -23,6 +23,14 @@
 
 - 任何一台新装了 skill：在那台跑 `/sync-skills` 推上去
 - 其他机器：跑 `/sync-skills` 拉下来
+- 纯消费的机器（比如只拉不推的 Grok box）可以用 `vault-mirror.sh pull`——只拉取，永不写 vault
+
+**合并规则**——两边都变过时 sync 怎么判：
+
+- vault 带 `skills-lock.json`，记录每个 skill 的来源（`npx` / Claude 插件 / 手写）。vault 来的 skill 会回填进本机 skills lock，所以 `npx skills update` 在每台机器上都认识它们
+- `npx` 装的 skill 按 lock 身份合并：只有远端变 → 远端赢（陈旧的机器打不回较新的 vault）；两边都变 → 报 CONFLICT、本地赢，另一版留在 git 历史里
+- Claude 插件来的 skill 跟着已安装的插件走——先更新插件（或跑 `/skills-maintenance`）再同步
+- 手写 skill 为后同步者胜；被覆盖的版本可从 vault 的 git 历史找回
 
 不需要多机共享？完全不用管 vault——没配置时同步会自动跳过它，单机照常。
 
@@ -67,6 +75,37 @@ npx skills add Apri1qing/skills-bridge -g
 /plugin marketplace add Apri1qing/skills-bridge
 /plugin install skills-bridge@skills-bridge
 ```
+
+## 给 agent 的话
+
+用户把这段指给你看，就是想让你替他把 skills-bridge 配好。三步。
+
+**1. 知道自己在装什么。** skills-bridge 让所有 agent 共用一个 skill 库（`~/.agents/skills`）：给某个 agent 装的 skill 其他 agent 也能用（`/sync-skills` 双向对齐）；`/skills-maintenance` 一键更新一切；可选的私有 git vault 让同一个库跟着用户跨机器走。
+
+**2. 按自己的环境安装，并验证：**
+
+| 你是 | 安装 | 验证 |
+|---|---|---|
+| Claude Code | `/plugin marketplace add Apri1qing/skills-bridge`，再 `/plugin install skills-bridge@skills-bridge` | `/sync-skills` 能跑 |
+| Codex，或任何读 `~/.agents/skills` 的 agent | `npx skills add Apri1qing/skills-bridge -g` | `~/.agents/skills/sync-skills` 存在 |
+| Grok Bot 云端 box | 下面这组命令 | `/home/box/agent-data/workflows` 下出现各 skill 目录 |
+
+Grok Bot 的 box 没有插件系统、也不保证有 Node——安装就是纯 git + cp（只要求 bash 和 git）：
+
+```bash
+git clone https://github.com/Apri1qing/skills-bridge.git ~/skills-bridge
+mkdir -p /home/box/agent-data/workflows
+cp -r ~/skills-bridge/skills/* /home/box/agent-data/workflows/
+```
+
+之后升级用 `git -C ~/skills-bridge pull && cp -r ~/skills-bridge/skills/* /home/box/agent-data/workflows/`。box 上 `/skills-maintenance` 不适用（它的两个更新源都不存在），日常就是 `/sync-skills`，或 `vault-mirror.sh pull` 只拉不推。
+
+**3. 问用户一个问题：「要把这套 skill 库在你的多台机器间共享吗？」**
+
+- **要** → 走 `/init-vault` 引导：创建私有 vault（`bash <插件>/skills/sync-skills/scripts/vault-mirror.sh init ~/skills-vault --repo OWNER/skills-vault`），或 clone 用户已有的 vault 并登记本机 skill 落点（`bash <插件>/skills/sync-skills/scripts/vault-mirror.sh setup ~/skills-vault <skills目录>`，Grok box 是 `/home/box/agent-data/workflows`）。然后跑一次 `/sync-skills` 灌仓或拉取。
+- **不要** → 到此为止。单机同步不依赖 vault，无需任何配置。
+
+最后用一句话告诉用户日常用法：任何地方装了/更新了 skill 就跑 `/sync-skills`；要一键更新一切就跑 `/skills-maintenance`。
 
 ## `/sync-skills` — 双向同步
 

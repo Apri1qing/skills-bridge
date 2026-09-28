@@ -9,9 +9,9 @@ description: 同步 skills 到公共目录 ~/.agents/skills/：Claude 插件纯 
 
 | 步骤 | 行为 |
 |---|---|
-| vault pre | `vault-mirror.sh sync`：git pull，vault↔agents 合并 |
+| vault pre | `vault-mirror.sh sync`：git pull，token 三方合并（远端较新的 npx skill 不被本地上传覆盖） |
 | Claude / Codex bridge | 插件拷贝、Codex 迁入、Claude 实体迁入（原位补软链）、Claude 软链 |
-| vault post | `vault-mirror.sh sync --commit`：镜像回仓并 push |
+| vault post | `vault-mirror.sh sync --commit`：镜像回仓并 push，`skills-lock.json` 记录每个 skill 的来源 |
 
 ## Commands
 
@@ -24,6 +24,9 @@ bash <skill-dir>/scripts/sync-skills.sh --dry-run
 bash <skill-dir>/scripts/sync-skills.sh --skip-vault   # host sync only
 bash <skill-dir>/scripts/sync-skills.sh list
 bash <skill-dir>/scripts/sync-skills.sh --force        # only if user explicitly asks
+
+# 纯消费机器（如 Grok box 只拉不推）：只拉取，永不写 vault
+bash <skill-dir>/scripts/vault-mirror.sh pull
 ```
 
 Multi-machine vault setup is **`init-vault`**, not this skill. Do not prompt about vault when none is configured.
