@@ -4,6 +4,20 @@ For people who use Claude Code **and** other agents: one shared library of skill
 
 [English](README.md) | [中文](README.zh-CN.md)
 
+## Onboard — paste this to your agent
+
+Claude Code, Codex, Grok Bot, any of them:
+
+```text
+Install skills-bridge and onboard me:
+1. Read the full README at
+   https://github.com/Apri1qing/skills-bridge (README.zh-CN.md for Chinese)
+   so you can explain how skills-bridge and skills-vault relate.
+2. Install skills-bridge for your environment and verify it works.
+3. Ask me whether to share this skill library across my machines.
+   If yes, run the /init-vault onboarding; if no, stop — nothing to configure.
+```
+
 ## Optional: share skills across machines
 
 Your laptop, another PC, and your Grok cloud box can all connect to the **same private skills-vault**.
@@ -77,17 +91,6 @@ npx skills add Apri1qing/skills-bridge -g
 ```
 
 ## For agents
-
-**Onboard me — paste this to your agent** (Claude Code, Codex, Grok Bot, any of them):
-
-```text
-Install skills-bridge and onboard me:
-1. Read the "For agents" section of the README at
-   https://github.com/Apri1qing/skills-bridge (README.zh-CN.md for Chinese).
-2. Install skills-bridge for your environment and verify it works.
-3. Ask me whether to share this skill library across my machines.
-   If yes, run the /init-vault onboarding; if no, stop — nothing to configure.
-```
 
 A user pointing you at this section wants you to set skills-bridge up for them. Three steps.
 

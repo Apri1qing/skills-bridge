@@ -4,6 +4,19 @@
 
 [English](README.md) | [中文](README.zh-CN.md)
 
+## Onboard——把这段贴给你的 agent
+
+Claude Code、Codex、Grok Bot 都行：
+
+```text
+为我安装并配置 skills-bridge：
+1. 通读整个 README（https://github.com/Apri1qing/skills-bridge，
+   中文版 README.zh-CN.md），理解 skills-bridge 和 skills-vault 的关系。
+2. 按你自己的环境安装 skills-bridge，并验证装好了。
+3. 问我：要不要把这套 skill 库在多台机器间共享。
+   要，就走 /init-vault 引导；不要就到此为止，无需任何配置。
+```
+
 ## 可选：多台机器共用同一套 skill
 
 笔记本、另一台电脑、Grok 云端 box，都可以连到**同一个私有 skills-vault**。
@@ -77,17 +90,6 @@ npx skills add Apri1qing/skills-bridge -g
 ```
 
 ## 给 agent 的话
-
-**帮我 onboard——把下面这段原样贴给你的 agent**（Claude Code、Codex、Grok Bot 都行）：
-
-```text
-为我安装并配置 skills-bridge：
-1. 读 https://github.com/Apri1qing/skills-bridge 的 README 中
-   「For agents」段落（中文在 README.zh-CN.md）。
-2. 按你自己的环境安装 skills-bridge，并验证装好了。
-3. 问我：要不要把这套 skill 库在多台机器间共享。
-   要，就走 /init-vault 引导；不要就到此为止，无需任何配置。
-```
 
 用户把这段指给你看，就是想让你替他把 skills-bridge 配好。三步。
 
