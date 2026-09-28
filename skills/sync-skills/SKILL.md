@@ -24,9 +24,6 @@ bash <skill-dir>/scripts/sync-skills.sh --dry-run
 bash <skill-dir>/scripts/sync-skills.sh --skip-vault   # host sync only
 bash <skill-dir>/scripts/sync-skills.sh list
 bash <skill-dir>/scripts/sync-skills.sh --force        # only if user explicitly asks
-
-# 任何机器只想拉取时（fetch-only，不写 vault）
-bash <skill-dir>/scripts/vault-mirror.sh pull
 ```
 
 Multi-machine vault setup is **`init-vault`**, not this skill. Do not prompt about vault when none is configured.

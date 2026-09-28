@@ -103,11 +103,11 @@ mkdir -p /home/box/agent-data/workflows
 cp -r ~/skills-bridge/skills/* /home/box/agent-data/workflows/
 ```
 
-Update later with `git -C ~/skills-bridge pull && cp -r ~/skills-bridge/skills/* /home/box/agent-data/workflows/`. On a box `/skills-maintenance` does not apply (its two update sources don't exist there); day-to-day is `/sync-skills` — it works in both directions, so skills the user installs on the box flow back into the vault too (push needs git credentials; without them, `vault-mirror.sh pull` fetches only).
+Update later with `git -C ~/skills-bridge pull && cp -r ~/skills-bridge/skills/* /home/box/agent-data/workflows/`. On a box `/skills-maintenance` does not apply (its two update sources don't exist there); day-to-day is `/sync-skills` — it works in both directions, so skills the user installs on the box flow back into the vault too (push needs git credentials).
 
 **3. Ask the user one question: "Share this skill library across your machines?"**
 
-- **Yes** → run the `/init-vault` onboarding: create a private vault (`bash <plugin>/skills/sync-skills/scripts/vault-mirror.sh init ~/skills-vault --repo OWNER/skills-vault`), or clone the user's existing vault and register this machine's skills dir (`bash <plugin>/skills/sync-skills/scripts/vault-mirror.sh setup ~/skills-vault <skills-dir>` — `/home/box/agent-data/workflows` on a Grok box). Then run `/sync-skills` once to fill or pull the vault.
+- **Yes** → run the `/init-vault` skill: it creates a private vault, or registers the user's existing vault for this machine (the skills dir is `~/.agents/skills`, or `/home/box/agent-data/workflows` on a Grok box). Then run `/sync-skills` once to fill or pull the vault.
 - **No** → done. Single-machine sync is complete without the vault; nothing to configure.
 
 Close by telling the user the day-to-day in one line: `/sync-skills` after installing or updating skills anywhere, `/skills-maintenance` to update everything.
@@ -118,7 +118,7 @@ Your laptop, another PC, and your Grok cloud box can all connect to the **same p
 
 - **First machine**: run `/init-vault`, then `/sync-skills` once to fill the vault and push
 - **Every other machine / Grok box**: `git clone` the vault, run `/init-vault` to register the local skills dir (`~/.agents/skills` on a computer, `/home/box/agent-data/workflows` on a Grok box), then `/sync-skills`
-- **Day to day**: installed a skill somewhere? Run `/sync-skills` there to push it up, and on the other machines to pull it down — a Grok box works the same way (skills installed on the box flow back to the vault too); any machine can also run `vault-mirror.sh pull` to fetch without pushing
+- **Day to day**: installed a skill somewhere? Run `/sync-skills` there to push it up, and on the other machines to pull it down — a Grok box works the same way (skills installed on the box flow back to the vault too)
 
 Syncs are safe for your work: a stale machine can't clobber a newer vault, both-side changes are reported as conflicts and recoverable from the vault's git history, and vault-sourced skills stay updatable via `npx skills update` on every machine.
 
