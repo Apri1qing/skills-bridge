@@ -52,12 +52,14 @@ flowchart TB
     subgraph M1["💻 Every computer (same shape)"]
         P["Claude Code plugins"]
         E["~/.claude/skills entities"]
+        DX["~/.codex/skills pure skills"]
         N["npx skills add / written by you"]
         W1["Shared library<br/>~/.agents/skills"]
         CC["Claude Code"]
         CX["Codex / Cursor / …"]
         P -->|"copied in"| W1
         E -->|"migrate, symlink in place"| W1
+        DX -->|"migrate, no duplicate left"| W1
         N --> W1
         W1 -->|"symlink entries in ~/.claude/skills"| CC
         W1 -->|"read directly"| CX

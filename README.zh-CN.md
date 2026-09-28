@@ -51,12 +51,14 @@ flowchart TB
     subgraph M1["💻 每台电脑（结构相同）"]
         P["Claude Code 插件"]
         E["~/.claude/skills 实体"]
+        DX["~/.codex/skills 纯 skill"]
         N["npx skills add / 自写"]
         W1["公共库<br/>~/.agents/skills"]
         CC["Claude Code"]
         CX["Codex / Cursor / …"]
         P -->|"复制"| W1
         E -->|"迁入，原位换软链"| W1
+        DX -->|"迁入，不留双份"| W1
         N --> W1
         W1 -->|"软链入口 ~/.claude/skills"| CC
         W1 -->|"直接读"| CX
