@@ -14,19 +14,36 @@ Install skills-bridge and onboard me:
    https://github.com/Apri1qing/skills-bridge (README.zh-CN.md for Chinese)
    so you can explain how skills-bridge and skills-vault relate.
 2. Install skills-bridge for your environment and verify it works.
-3. Ask me whether to share this skill library across my machines.
+3. Ask me whether to mirror this shared library across my machines.
    If yes, run the /init-vault onboarding; if no, stop — nothing to configure.
 ```
 
 ## What it does
 
-Each tool installs skills in its own place and only reads its own directory — a plugin you install in Claude Code is invisible to Codex, and vice versa. skills-bridge gives them one shared library (`~/.agents/skills`, the standard directory Codex, Cursor, and the agentskills ecosystem natively scan):
+Every agent installs skills in its own place and only reads its own directory. skills-bridge puts a **shared library** in the middle (`~/.agents/skills`, the standard directory Codex, Cursor, and the agentskills ecosystem natively scan) and connects each agent to it:
 
-- **Claude → shared folder**: skills from pure-skills plugins are copied in, immediately usable by every other tool
-- **Shared folder → Claude**: skills that arrived without Claude Code get a symlink entry in `~/.claude/skills`, immediately usable by Claude Code
-- **Codex**: pure skills in `~/.codex/skills` migrate into the shared folder, leaving no duplicate behind
-- **Hand-placed skills**: entity skill dirs in `~/.claude/skills` migrate too, replaced in place by a symlink so Claude Code keeps working unchanged
-- **Host-bound plugins** (hooks / MCP / built-in tools) can't be shared by moving files — skills-bridge detects which other agents you have installed, searches for each one's equivalent install method, and installs it after your confirmation
+**Claude Code** (skills come from two places)
+
+- Plugins: skills from pure-skills plugins are **copied** into the shared library, immediately usable by every other tool
+- `~/.claude/skills`: entity skills **migrate** into the shared library, replaced in place by a symlink so Claude Code keeps working unchanged
+- The way back: skills in the library Claude doesn't have yet get a symlink entry in `~/.claude/skills`, immediately usable by Claude Code
+
+**Codex**
+
+- Pure skills in `~/.codex/skills` **migrate** into the shared library, leaving no duplicate behind
+- Codex reads the library directory directly — no entry points needed
+
+**The npx skills ecosystem / other agents**
+
+- `npx skills add` installs straight into the library; every agent that reads `~/.agents/skills` (Cursor, …) shares it natively
+
+**A Grok Bot box**
+
+- The shared library on a box is `/home/box/agent-data/workflows`; registered by `/init-vault`, it syncs with your other machines through the vault
+
+**Host-bound plugins** (hooks / MCP / built-in tools) can't be shared by moving files — skills-bridge detects which other agents you have installed, searches for each one's equivalent install method, and installs it after your confirmation.
+
+Naming for the two libraries: the **shared library** is `~/.agents/skills`, the one directory every agent on this machine reads; the **vault** is `skills-vault`, the private git repo that mirrors the shared library across your machines.
 
 The flow of skills at a glance:
 
@@ -34,7 +51,7 @@ The flow of skills at a glance:
 flowchart TB
     P["① Claude Code plugins"]
     N["npx skills add"]
-    H["Placed by hand"]
+    H["Written by you"]
     CX["Codex pure skills"]
     W["② 💻 Shared library<br/>~/.agents/skills"]
     C["③ Claude entry<br/>~/.claude/skills"]
@@ -75,17 +92,17 @@ npx skills add Apri1qing/skills-bridge -g
 
 | Skill | Job |
 |---|---|
-| `/sync-skills` | Keep Claude / Codex / the shared folder in sync (and your other machines, if you set up the vault) |
+| `/sync-skills` | Keep Claude / Codex / the shared library in sync (and your other machines, if you set up the vault) |
 | `/skills-maintenance` | Update everything, then sync |
 | `/init-vault` | One-time: set up sharing skills across your computers (optional) |
 
-Run `/sync-skills` after installing, updating, or uninstalling skills anywhere; run `/skills-maintenance` when you want everything current. Typical case: a plugin goes 1.0 → 2.1 — Claude Code uses the new version immediately, but other tools read the *copy* in the shared folder; one `/sync-skills` refreshes every copy.
+Run `/sync-skills` after installing, updating, or uninstalling skills anywhere; run `/skills-maintenance` when you want everything current. Typical case: a plugin goes 1.0 → 2.1 — Claude Code uses the new version immediately, but other tools read the *copy* in the shared library; one `/sync-skills` refreshes every copy.
 
 ## For agents
 
 Your job: get skills-bridge set up for the user. Three steps.
 
-**1. Know what you're installing.** skills-bridge keeps one shared skill library (`~/.agents/skills`) consistent across agents: skills installed for one agent become usable by the others (`/sync-skills` reconciles both directions), `/skills-maintenance` updates everything in one go, and an optional private git vault replicates the same library across the user's machines.
+**1. Know what you're installing.** skills-bridge keeps one shared library (`~/.agents/skills`) consistent across agents: skills installed for one agent become usable by the others (`/sync-skills` reconciles both directions), `/skills-maintenance` updates everything in one go, and an optional private git vault replicates the same library across the user's machines.
 
 **2. Install for your environment, then verify:**
 
@@ -105,7 +122,7 @@ cp -r ~/skills-bridge/skills/* /home/box/agent-data/workflows/
 
 Update later with `git -C ~/skills-bridge pull && cp -r ~/skills-bridge/skills/* /home/box/agent-data/workflows/`. On a box `/skills-maintenance` does not apply (its two update sources don't exist there); day-to-day is `/sync-skills` — it works in both directions, so skills the user installs on the box flow back into the vault too (push needs git credentials).
 
-**3. Ask the user one question: "Share this skill library across your machines?"**
+**3. Ask the user one question: "Mirror this shared library across your machines?"**
 
 - **Yes** → run the `/init-vault` skill: it creates a private vault, or registers the user's existing vault for this machine (the skills dir is `~/.agents/skills`, or `/home/box/agent-data/workflows` on a Grok box). Then run `/sync-skills` once to fill or pull the vault.
 - **No** → done. Single-machine sync is complete without the vault; nothing to configure.

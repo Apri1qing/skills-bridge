@@ -13,19 +13,36 @@ Claude Code、Codex、Grok Bot 都行：
 1. 通读整个 README（https://github.com/Apri1qing/skills-bridge，
    中文版 README.zh-CN.md），理解 skills-bridge 和 skills-vault 的关系。
 2. 按你自己的环境安装 skills-bridge，并验证装好了。
-3. 问我：要不要把这套 skill 库在多台机器间共享。
+3. 问我：要不要把这个公共库镜像到我的多台机器。
    要，就走 /init-vault 引导；不要就到此为止，无需任何配置。
 ```
 
 ## 它能做什么
 
-各个工具把 skill 装在**不同的地方**，又各自只认自己的目录——Claude Code 装的插件 Codex 看不见，反过来也一样。skills-bridge 给它们一个公共库（`~/.agents/skills`，Codex、Cursor 和 agentskills 生态原生扫描的标准目录）：
+每个 agent 的 skill 装在各自的地方、只认自己的目录。skills-bridge 在中间放一个**公共库**（`~/.agents/skills`，Codex、Cursor 和 agentskills 生态原生扫描的标准目录），把各家的 skill 接进来：
 
-- **Claude → 公共仓库**：插件里的纯 skill 复制进来，其他工具立刻能用
-- **公共仓库 → Claude**：不经 Claude Code 进来的 skill 补上 `~/.claude/skills` 软链入口，Claude Code 立刻能用
-- **Codex**：`~/.codex/skills` 里的纯 skill 迁进公共仓库，不留双份
-- **手放的 skill**：`~/.claude/skills` 里的实体同样迁进公共仓库，原位换成软链，Claude Code 无感继续用
-- **绑宿主的功能型插件**（hooks / MCP / 内置工具）没法靠搬文件共享——skills-bridge 探测你装了哪些其他 agent，联网查各家的等价装法，经你确认后装上
+**Claude Code**（skill 有两个来源）
+
+- 插件型：纯 skills 插件里的 skill **复制**进公共库，其他工具立刻可用
+- `~/.claude/skills` 型：实体 skill **迁入**公共库，原位换成软链——Claude Code 无感继续用
+- 反向连接：公共库里 Claude 还没有的 skill，在 `~/.claude/skills` 补一个软链入口，Claude Code 立刻可用
+
+**Codex**
+
+- `~/.codex/skills` 里的纯 skill **迁入**公共库，不留双份
+- Codex 直接读公共库目录，不需要入口
+
+**npx skills 生态 / 其他 agent**
+
+- `npx skills add` 直接装进公共库；所有读 `~/.agents/skills` 的 agent（Cursor 等）天然共享
+
+**Grok Bot box**
+
+- box 上的公共库就是 `/home/box/agent-data/workflows`，经 `/init-vault` 登记后通过 vault 与其他机器互通
+
+**绑宿主的功能型插件**（hooks / MCP / 内置工具）没法靠搬文件共享——skills-bridge 探测你装了哪些其他 agent，联网查各家的等价装法，经你确认后装上。
+
+两个库的命名：**公共库** = `~/.agents/skills`，本机所有 agent 共享的目录；**vault** = `skills-vault`，把公共库镜像到多台机器的私有 git 仓。
 
 skill 的流向一图看全：
 
@@ -33,9 +50,9 @@ skill 的流向一图看全：
 flowchart TB
     P["① Claude Code 插件"]
     N["npx skills add"]
-    H["手动放入"]
+    H["自写 skill"]
     CX["Codex 纯 skill"]
-    W["② 💻 本机仓库<br/>~/.agents/skills"]
+    W["② 💻 公共库<br/>~/.agents/skills"]
     C["③ Claude 入口<br/>~/.claude/skills"]
     V["④ ☁️ skills-vault<br/>私有 git 镜像"]
     M1["💻 电脑"]
@@ -74,17 +91,17 @@ npx skills add Apri1qing/skills-bridge -g
 
 | Skill | 职责 |
 |---|---|
-| `/sync-skills` | 让 Claude / Codex / 公共目录对齐（若已配置 vault，也同步到其他电脑） |
+| `/sync-skills` | 让 Claude / Codex / 公共库对齐（若已配置 vault，也同步到其他电脑） |
 | `/skills-maintenance` | 先更新一切，再同步 |
 | `/init-vault` | 一次性：配置「多台电脑共用 skill」（可选） |
 
-任何地方装了、更新了、卸载了 skill，跑一次 `/sync-skills`；想让一切保持最新，跑 `/skills-maintenance`。典型场景：插件从 1.0 升到 2.1——Claude Code 马上用新版，但其他工具读的是公共仓库里的*副本*，一次 `/sync-skills` 全部刷新。
+任何地方装了、更新了、卸载了 skill，跑一次 `/sync-skills`；想让一切保持最新，跑 `/skills-maintenance`。典型场景：插件从 1.0 升到 2.1——Claude Code 马上用新版，但其他工具读的是公共库里的*副本*，一次 `/sync-skills` 全部刷新。
 
 ## 给 agent 的话
 
 你的任务：替用户装好 skills-bridge。三步。
 
-**1. 知道自己在装什么。** skills-bridge 让所有 agent 共用一个 skill 库（`~/.agents/skills`）：给某个 agent 装的 skill 其他 agent 也能用（`/sync-skills` 双向对齐）；`/skills-maintenance` 一键更新一切；可选的私有 git vault 让同一个库跟着用户跨机器走。
+**1. 知道自己在装什么。** skills-bridge 让所有 agent 共用一个公共库（`~/.agents/skills`）：给某个 agent 装的 skill 其他 agent 也能用（`/sync-skills` 双向对齐）；`/skills-maintenance` 一键更新一切；可选的 vault 把公共库镜像到用户的多台机器。
 
 **2. 按自己的环境安装，并验证：**
 
@@ -104,7 +121,7 @@ cp -r ~/skills-bridge/skills/* /home/box/agent-data/workflows/
 
 之后升级用 `git -C ~/skills-bridge pull && cp -r ~/skills-bridge/skills/* /home/box/agent-data/workflows/`。box 上 `/skills-maintenance` 不适用（它的两个更新源都不存在），日常就是 `/sync-skills`——它是双向的，用户在 box 上装的 skill 同样会回流 vault（push 需要配好 git 凭据）。
 
-**3. 问用户一个问题：「要把这套 skill 库在你的多台机器间共享吗？」**
+**3. 问用户一个问题：「要把这个公共库镜像到你的多台机器吗？」**
 
 - **要** → 跑 `/init-vault` skill：它会创建私有 vault，或把用户已有的 vault 登记到本机（skill 落点：电脑是 `~/.agents/skills`，Grok box 是 `/home/box/agent-data/workflows`）。然后跑一次 `/sync-skills` 灌仓或拉取。
 - **不要** → 到此为止。单机同步不依赖 vault，无需任何配置。
