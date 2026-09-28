@@ -78,6 +78,19 @@ npx skills add Apri1qing/skills-bridge -g
 
 ## For agents
 
+**Onboard me — paste this to your agent** (Claude Code, Codex, Grok Bot, any of them):
+
+```text
+Install skills-bridge and onboard me:
+1. Read the "For agents" section of the README at
+   https://github.com/Apri1qing/skills-bridge (README.zh-CN.md for Chinese).
+2. Install skills-bridge for your environment and verify it works.
+3. Ask me whether to share this skill library across my machines.
+   If yes, run the /init-vault onboarding; if no, stop — nothing to configure.
+```
+
+Your agent can't fetch URLs (e.g. an offline box)? Paste the rest of this section to it directly. What it will walk you through:
+
 A user pointing you at this section wants you to set skills-bridge up for them. Three steps.
 
 **1. Know what you're installing.** skills-bridge keeps one shared skill library (`~/.agents/skills`) consistent across agents: skills installed for one agent become usable by the others (`/sync-skills` reconciles both directions), `/skills-maintenance` updates everything in one go, and an optional private git vault replicates the same library across the user's machines.
