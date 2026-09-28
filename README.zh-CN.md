@@ -27,6 +27,34 @@ Claude Code、Codex、Grok Bot 都行：
 - **手放的 skill**：`~/.claude/skills` 里的实体同样迁进公共仓库，原位换成软链，Claude Code 无感继续用
 - **绑宿主的功能型插件**（hooks / MCP / 内置工具）没法靠搬文件共享——skills-bridge 探测你装了哪些其他 agent，联网查各家的等价装法，经你确认后装上
 
+skill 的流向一图看全：
+
+```mermaid
+flowchart TB
+    P["① Claude Code 插件"]
+    N["npx skills add"]
+    H["手动放入"]
+    CX["Codex 纯 skill"]
+    W["② 💻 本机仓库<br/>~/.agents/skills"]
+    C["③ Claude 入口<br/>~/.claude/skills"]
+    V["④ ☁️ skills-vault<br/>私有 git 镜像"]
+    M1["💻 电脑"]
+    M2["💻 其他电脑 / Grok box"]
+    IV["/init-vault"]
+    P --> W
+    N --> W
+    H --> W
+    CX --> W
+    W -->|"软链"| C
+    C -->|"实体迁入"| W
+    C --> CC["Claude Code"]
+    W -->|"直接读"| X["Codex / Cursor / …"]
+    W <-.->|"已配置时：/sync-skills"| V
+    M1 <-.->|"pull / push"| V
+    M2 <-.->|"pull / push"| V
+    IV -.->|"创建 / 登记"| V
+```
+
 ## 安装
 
 ### `npx skills`
@@ -74,7 +102,7 @@ mkdir -p /home/box/agent-data/workflows
 cp -r ~/skills-bridge/skills/* /home/box/agent-data/workflows/
 ```
 
-之后升级用 `git -C ~/skills-bridge pull && cp -r ~/skills-bridge/skills/* /home/box/agent-data/workflows/`。box 上 `/skills-maintenance` 不适用（它的两个更新源都不存在），日常就是 `/sync-skills`，或 `vault-mirror.sh pull` 只拉不推。
+之后升级用 `git -C ~/skills-bridge pull && cp -r ~/skills-bridge/skills/* /home/box/agent-data/workflows/`。box 上 `/skills-maintenance` 不适用（它的两个更新源都不存在），日常就是 `/sync-skills`——它是双向的，用户在 box 上装的 skill 同样会回流 vault（push 需要配好 git 凭据；没有凭据时用 `vault-mirror.sh pull` 只拉取）。
 
 **3. 问用户一个问题：「要把这套 skill 库在你的多台机器间共享吗？」**
 
@@ -89,7 +117,7 @@ cp -r ~/skills-bridge/skills/* /home/box/agent-data/workflows/
 
 - **第一台机器**：跑 `/init-vault`，再跑一次 `/sync-skills` 灌仓并 push
 - **其他机器 / Grok box**：`git clone` vault 仓库，跑 `/init-vault` 登记本机 skill 落点（电脑是 `~/.agents/skills`，Grok box 是 `/home/box/agent-data/workflows`），然后 `/sync-skills`
-- **日常**：任何一台新装了 skill，在那台跑 `/sync-skills` 推上去，其他机器跑 `/sync-skills` 拉下来；纯消费的机器（比如只拉不推的 Grok box）可以跑 `vault-mirror.sh pull`
+- **日常**：任何一台新装了 skill，在那台跑 `/sync-skills` 推上去，其他机器跑 `/sync-skills` 拉下来——Grok box 同样如此（box 上装的 skill 也会回流 vault）；任何机器也都可以跑 `vault-mirror.sh pull` 只拉不推
 
 同步不会弄丢你的工作：陈旧的机器打不回较新的 vault，两边都变会报 CONFLICT、可从 vault 的 git 历史找回，vault 来的 skill 在每台机器上都能 `npx skills update`。
 

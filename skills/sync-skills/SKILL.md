@@ -25,7 +25,7 @@ bash <skill-dir>/scripts/sync-skills.sh --skip-vault   # host sync only
 bash <skill-dir>/scripts/sync-skills.sh list
 bash <skill-dir>/scripts/sync-skills.sh --force        # only if user explicitly asks
 
-# 纯消费机器（如 Grok box 只拉不推）：只拉取，永不写 vault
+# 任何机器只想拉取时（fetch-only，不写 vault）
 bash <skill-dir>/scripts/vault-mirror.sh pull
 ```
 

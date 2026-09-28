@@ -28,6 +28,34 @@ Each tool installs skills in its own place and only reads its own directory — 
 - **Hand-placed skills**: entity skill dirs in `~/.claude/skills` migrate too, replaced in place by a symlink so Claude Code keeps working unchanged
 - **Host-bound plugins** (hooks / MCP / built-in tools) can't be shared by moving files — skills-bridge detects which other agents you have installed, searches for each one's equivalent install method, and installs it after your confirmation
 
+The flow of skills at a glance:
+
+```mermaid
+flowchart TB
+    P["① Claude Code plugins"]
+    N["npx skills add"]
+    H["Placed by hand"]
+    CX["Codex pure skills"]
+    W["② 💻 Shared library<br/>~/.agents/skills"]
+    C["③ Claude entry<br/>~/.claude/skills"]
+    V["④ ☁️ skills-vault<br/>private git mirror"]
+    M1["💻 Computer"]
+    M2["💻 Another PC / Grok box"]
+    IV["/init-vault"]
+    P --> W
+    N --> W
+    H --> W
+    CX --> W
+    W -->|"symlink"| C
+    C -->|"entities migrate"| W
+    C --> CC["Claude Code"]
+    W -->|"read directly"| X["Codex / Cursor / …"]
+    W <-.->|"when configured: /sync-skills"| V
+    M1 <-.->|"pull / push"| V
+    M2 <-.->|"pull / push"| V
+    IV -.->|"creates / registers"| V
+```
+
 ## Install
 
 ### `npx skills`
@@ -75,7 +103,7 @@ mkdir -p /home/box/agent-data/workflows
 cp -r ~/skills-bridge/skills/* /home/box/agent-data/workflows/
 ```
 
-Update later with `git -C ~/skills-bridge pull && cp -r ~/skills-bridge/skills/* /home/box/agent-data/workflows/`. On a box `/skills-maintenance` does not apply (its two update sources don't exist there); day-to-day is `/sync-skills`, or `vault-mirror.sh pull` for fetch-only.
+Update later with `git -C ~/skills-bridge pull && cp -r ~/skills-bridge/skills/* /home/box/agent-data/workflows/`. On a box `/skills-maintenance` does not apply (its two update sources don't exist there); day-to-day is `/sync-skills` — it works in both directions, so skills the user installs on the box flow back into the vault too (push needs git credentials; without them, `vault-mirror.sh pull` fetches only).
 
 **3. Ask the user one question: "Share this skill library across your machines?"**
 
@@ -90,7 +118,7 @@ Your laptop, another PC, and your Grok cloud box can all connect to the **same p
 
 - **First machine**: run `/init-vault`, then `/sync-skills` once to fill the vault and push
 - **Every other machine / Grok box**: `git clone` the vault, run `/init-vault` to register the local skills dir (`~/.agents/skills` on a computer, `/home/box/agent-data/workflows` on a Grok box), then `/sync-skills`
-- **Day to day**: installed a skill somewhere? Run `/sync-skills` there to push it up, and on the other machines to pull it down; a machine that only consumes (e.g. a Grok box that never pushes) can run `vault-mirror.sh pull` instead
+- **Day to day**: installed a skill somewhere? Run `/sync-skills` there to push it up, and on the other machines to pull it down — a Grok box works the same way (skills installed on the box flow back to the vault too); any machine can also run `vault-mirror.sh pull` to fetch without pushing
 
 Syncs are safe for your work: a stale machine can't clobber a newer vault, both-side changes are reported as conflicts and recoverable from the vault's git history, and vault-sourced skills stay updatable via `npx skills update` on every machine.
 
