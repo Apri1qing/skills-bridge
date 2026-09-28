@@ -92,6 +92,141 @@ RSYNC_FILE_EXCLUDES=(
   --exclude '.synced-*'
 )
 
+# Vault-side skill provenance manifest + the npx skills CLI's machine-local lock.
+# Marker/state file names must match sync-skills.sh.
+LOCK_NAME="skills-lock.json"
+PLUGIN_MARKER=".synced-from-plugin"
+PLUGIN_STATE=".synced-plugin-state"
+
+npx_lock_file() {
+  printf '%s/.agents/.skill-lock.json' "$HOME"
+}
+
+# Rewrite the vault manifest from the skills copied agents→vault this run.
+# $1 = copied skill names (file, one per line)
+# $2 = plugin provenance TSV (name <TAB> plugin <TAB> version <TAB> sha)
+manifest_harvest() {
+  command -v python3 >/dev/null 2>&1 || { echo "manifest: python3 not found, $LOCK_NAME not updated"; return 0; }
+  python3 - "$VAULT_PATH/$LOCK_NAME" "$(npx_lock_file)" "$1" "$2" "$SKILLS_DIR" <<'PY'
+import json, os, sys
+
+manifest_p, lock_p, synced_p, plugin_p, skills_dir = sys.argv[1:6]
+
+def load(path):
+    try:
+        with open(path) as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+def lines(path):
+    try:
+        with open(path) as f:
+            return [l.rstrip('\n') for l in f if l.strip()]
+    except Exception:
+        return []
+
+old = load(manifest_p).get('skills', {})
+lock = load(lock_p).get('skills', {})
+synced = lines(synced_p)
+plugins = {}
+for line in lines(plugin_p):
+    parts = line.split('\t')
+    if len(parts) == 4:
+        plugins[parts[0]] = parts[1:4]
+
+on_disk = set(os.listdir(skills_dir)) if os.path.isdir(skills_dir) else set()
+
+skills = {}
+for name in sorted(set(list(old.keys()) + synced)):
+    if name not in on_disk:
+        continue  # pruned: skill dir no longer in the vault
+    if name not in synced:
+        skills[name] = old[name]
+        continue
+    if name in lock:
+        entry = dict(lock[name])
+        entry['origin'] = 'npx'
+    elif name in plugins:
+        plugin, ver, sha = plugins[name]
+        entry = {'origin': 'claude-plugin', 'plugin': plugin,
+                 'pluginVersion': ver, 'gitCommitSha': sha}
+    else:
+        prior = old.get(name)
+        if prior and prior.get('origin') in ('npx', 'claude-plugin'):
+            entry = prior  # this machine holds no token (e.g. a box): keep provenance
+        else:
+            entry = {'origin': 'local'}
+    skills[name] = entry
+
+doc = {'version': 1, 'skills': skills}
+out = json.dumps(doc, indent=2, sort_keys=True, ensure_ascii=False) + '\n'
+try:
+    with open(manifest_p) as f:
+        current = f.read()
+except Exception:
+    current = None
+if current != out:
+    with open(manifest_p, 'w') as f:
+        f.write(out)
+    print('manifest: %d entries (%d harvested this run)' % (len(skills), len(synced)))
+else:
+    print('manifest: up to date (%d entries)' % len(skills))
+PY
+}
+
+# Merge npx-origin manifest entries into the machine-local skills lock so
+# `npx skills update/list/remove` recognises every skill, vault-sourced included.
+# $1 = names whose local entry must adopt the vault entry (refresh list)
+lock_backfill() {
+  command -v python3 >/dev/null 2>&1 || { echo "manifest: python3 not found, .skill-lock.json not updated"; return 0; }
+  mkdir -p "$(dirname "$(npx_lock_file)")"
+  python3 - "$VAULT_PATH/$LOCK_NAME" "$(npx_lock_file)" "$1" <<'PY'
+import json, sys
+
+manifest_p, lock_p, refresh_p = sys.argv[1:4]
+
+def load(path):
+    try:
+        with open(path) as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+entries = load(manifest_p).get('skills', {})
+doc = load(lock_p)
+if not doc:
+    doc = {'version': 3}  # matches the npx skills CLI lock this backfill feeds into
+skills = doc.setdefault('skills', {})
+if not isinstance(skills, dict):
+    print('lock: unfamiliar .skill-lock.json shape, left untouched')
+    sys.exit(0)
+try:
+    with open(refresh_p) as f:
+        refresh = set(l.rstrip('\n') for l in f if l.strip())
+except Exception:
+    refresh = set()
+
+added = updated = 0
+for name, entry in sorted(entries.items()):
+    if entry.get('origin') != 'npx':
+        continue
+    fields = {k: v for k, v in entry.items() if k != 'origin'}
+    if name not in skills:
+        skills[name] = fields
+        added += 1
+    elif name in refresh and skills[name] != fields:
+        skills[name] = fields
+        updated += 1
+
+if added or updated:
+    with open(lock_p, 'w') as f:
+        json.dump(doc, f, indent=2, ensure_ascii=False)
+        f.write('\n')
+    print('lock: %d added, %d refreshed' % (added, updated))
+PY
+}
+
 rsync_to() {
   local from="$1" to="$2" delete_flag="${3:-}"
   mkdir -p "$to"
@@ -302,6 +437,14 @@ cmd_status() {
   echo "origin: $(git -C "$VAULT_PATH" remote get-url origin 2>/dev/null || echo none)"
   echo "vault skills:  $(find "$SKILLS_DIR" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l | tr -d ' ')"
   echo "agents skills: $(find "$AGENTS_PATH" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l | tr -d ' ')"
+  if [ -f "$VAULT_PATH/$LOCK_NAME" ] && command -v python3 >/dev/null 2>&1; then
+    python3 -c "
+import collections, json
+c = collections.Counter(e.get('origin', 'local') for e in json.load(open('$VAULT_PATH/$LOCK_NAME')).get('skills', {}).values())
+print('manifest:      %d entries (npx %d / claude-plugin %d / local %d)' % (sum(c.values()), c['npx'], c['claude-plugin'], c['local']))" 2>/dev/null || echo "manifest:      unreadable"
+  else
+    echo "manifest:      none"
+  fi
   echo "exclude ids:   ${#EXCLUDE_IDS[@]}"
 }
 
@@ -326,7 +469,15 @@ cmd_sync() {
 
   mkdir -p "$SKILLS_DIR"
   echo "== agents → vault (add/update, no delete) =="
-  local name dir
+  local name dir st ver sha pid rel mk pn m
+  local tmp synced_names plugin_tsv refresh_list
+  tmp="$(mktemp -d)"
+  synced_names="$tmp/synced"
+  plugin_tsv="$tmp/plugins"
+  refresh_list="$tmp/refresh"
+  : > "$synced_names"
+  : > "$plugin_tsv"
+  : > "$refresh_list"
   for dir in "$AGENTS_PATH"/*; do
     [ -d "$dir" ] || continue
     name="$(basename "$dir")"
@@ -337,6 +488,21 @@ cmd_sync() {
     has_skill_md "$dir" || { echo "skip (no SKILL.md): $name"; continue; }
     mkdir -p "$SKILLS_DIR/$name"
     rsync_to "$dir" "$SKILLS_DIR/$name" ""
+    echo "$name" >> "$synced_names"
+    if [ -f "$dir/$PLUGIN_STATE" ]; then
+      st="$(cat "$dir/$PLUGIN_STATE")"
+      ver="${st%%|*}"
+      sha="${st#*|}"
+      pid=""
+      if [ -f "$dir/$PLUGIN_MARKER" ]; then
+        m="$(cat "$dir/$PLUGIN_MARKER")"
+        rel="${m#"$HOME"/.claude/plugins/cache/}"
+        mk="$(printf '%s' "$rel" | cut -d/ -f1)"
+        pn="$(printf '%s' "$rel" | cut -d/ -f2)"
+        if [ -n "$pn" ] && [ "$pn" != "$rel" ]; then pid="$pn@$mk"; fi
+      fi
+      printf '%s\t%s\t%s\t%s\n' "$name" "$pid" "$ver" "$sha" >> "$plugin_tsv"
+    fi
     echo "↑ $name"
   done
 
@@ -353,6 +519,11 @@ cmd_sync() {
     rsync_to "$dir" "$AGENTS_PATH/$name" "delete"
     echo "↓ $name"
   done
+
+  echo "== manifest =="
+  lock_backfill "$refresh_list"
+  manifest_harvest "$synced_names" "$plugin_tsv"
+  rm -rf "$tmp"
 
   if [ "$do_commit" -eq 1 ]; then
     echo "== commit/push =="
@@ -401,6 +572,9 @@ cmd_pull() {
     rsync_to "$dir" "$AGENTS_PATH/$name" "delete"
     echo "↓ $name"
   done
+
+  echo "== manifest =="
+  lock_backfill /dev/null
   echo "== pull done (no upload, no commit) =="
 }
 
