@@ -659,10 +659,6 @@ cmd_push_dir() {
     echo "usage: $0 push-dir <target_dir>" >&2
     exit 2
   fi
-  if [ ! -d "$(dirname "$dest")" ] && [ ! -d "$dest" ]; then
-    # soft check: parent may need mkdir
-    :
-  fi
   mkdir -p "$dest"
   echo "== vault → $dest =="
   local name dir
