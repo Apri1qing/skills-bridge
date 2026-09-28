@@ -230,7 +230,9 @@ PY
 rsync_to() {
   local from="$1" to="$2" delete_flag="${3:-}"
   mkdir -p "$to"
-  local args=(-a "${RSYNC_FILE_EXCLUDES[@]}")
+  # --checksum: decide by content, not size+mtime — same-size edits inside the
+  # same second as a git checkout would otherwise be skipped as "unchanged".
+  local args=(-a --checksum "${RSYNC_FILE_EXCLUDES[@]}")
   if [ "$delete_flag" = "delete" ]; then
     args+=(--delete --exclude '.synced-*')
   fi
@@ -448,6 +450,58 @@ print('manifest:      %d entries (npx %d / claude-plugin %d / local %d)' % (sum(
   echo "exclude ids:   ${#EXCLUDE_IDS[@]}"
 }
 
+# Decide which npx-origin skills the vault has advanced beyond this machine.
+# Base = the vault manifest as this machine last saw it (pre-pull snapshot);
+# tokens are the lock identity (sourceUrl|skillPath|skillFolderHash).
+#   local==base && remote!=base → remote wins (skip upload, refresh local lock entry)
+#   local!=base && remote!=base → both moved: local wins, report as conflict
+# claude-plugin skills are plugin-authoritative (refresh via plugin update)
+# and local-origin skills are last-syncer-wins by contract — both always upload.
+# $1 base manifest file, $2 remote-win list out, $3 conflict list out
+manifest_merge_plan() {
+  : > "$2"
+  : > "$3"
+  command -v python3 >/dev/null 2>&1 || return 0
+  [ -f "$VAULT_PATH/$LOCK_NAME" ] || return 0
+  python3 - "$VAULT_PATH/$LOCK_NAME" "$1" "$(npx_lock_file)" "$2" "$3" <<'PY'
+import json, sys
+
+vault_p, base_p, lock_p, win_p, conflict_p = sys.argv[1:6]
+
+def load(path):
+    try:
+        with open(path) as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+def tok(entry):
+    return '%s|%s|%s' % (entry.get('sourceUrl', ''), entry.get('skillPath', ''),
+                         entry.get('skillFolderHash', ''))
+
+vault = load(vault_p).get('skills', {})
+base = load(base_p).get('skills', {})
+lock = load(lock_p).get('skills', {})
+
+win, conflict = [], []
+for name, remote in vault.items():
+    if remote.get('origin') != 'npx':
+        continue
+    b, l = base.get(name), lock.get(name)
+    if not b or not l:
+        continue
+    bt, lt, rt = tok(b), tok(l), tok(remote)
+    if lt == bt and rt != bt:
+        win.append(name)
+    elif lt != bt and rt != bt:
+        conflict.append(name)
+
+for path, names in ((win_p, win), (conflict_p, conflict)):
+    with open(path, 'w') as f:
+        f.write('\n'.join(names) + ('\n' if names else ''))
+PY
+}
+
 cmd_sync() {
   local do_commit=0
   [ "${1:-}" = "--commit" ] && do_commit=1
@@ -462,22 +516,37 @@ cmd_sync() {
     exit 1
   fi
 
-  echo "== git pull =="
-  if ! git -C "$VAULT_PATH" pull --ff-only 2>/dev/null && ! git -C "$VAULT_PATH" pull --rebase 2>/dev/null; then
-    echo "git pull skipped/failed (offline or no credentials) — continue with local vault"
-  fi
-
-  mkdir -p "$SKILLS_DIR"
-  echo "== agents → vault (add/update, no delete) =="
   local name dir st ver sha pid rel mk pn m
-  local tmp synced_names plugin_tsv refresh_list
+  local tmp base_manifest synced_names plugin_tsv refresh_list
   tmp="$(mktemp -d)"
+  base_manifest="$tmp/base"
   synced_names="$tmp/synced"
   plugin_tsv="$tmp/plugins"
   refresh_list="$tmp/refresh"
   : > "$synced_names"
   : > "$plugin_tsv"
   : > "$refresh_list"
+  if [ -f "$VAULT_PATH/$LOCK_NAME" ]; then
+    cp "$VAULT_PATH/$LOCK_NAME" "$base_manifest"
+  else
+    : > "$base_manifest"
+  fi
+
+  echo "== git pull =="
+  if ! git -C "$VAULT_PATH" pull --ff-only 2>/dev/null && ! git -C "$VAULT_PATH" pull --rebase 2>/dev/null; then
+    echo "git pull skipped/failed (offline or no credentials) — continue with local vault"
+  fi
+
+  echo "== merge plan =="
+  manifest_merge_plan "$base_manifest" "$refresh_list" "$tmp/conflict"
+  if [ -s "$tmp/conflict" ]; then
+    while IFS= read -r n; do
+      echo "CONFLICT: $n （两边都变 — 本地优先，远端旧版在 git 历史）"
+    done < "$tmp/conflict"
+  fi
+
+  mkdir -p "$SKILLS_DIR"
+  echo "== agents → vault (add/update, no delete) =="
   for dir in "$AGENTS_PATH"/*; do
     [ -d "$dir" ] || continue
     name="$(basename "$dir")"
@@ -486,6 +555,10 @@ cmd_sync() {
       continue
     fi
     has_skill_md "$dir" || { echo "skip (no SKILL.md): $name"; continue; }
+    if grep -Fxq "$name" "$refresh_list"; then
+      echo "↧ $name （远端较新 — 不上传，取远端）"
+      continue
+    fi
     mkdir -p "$SKILLS_DIR/$name"
     rsync_to "$dir" "$SKILLS_DIR/$name" ""
     echo "$name" >> "$synced_names"
@@ -532,7 +605,7 @@ cmd_sync() {
       echo "no vault changes to commit"
     else
       git -C "$VAULT_PATH" commit -m "sync: mirror from $(hostname -s 2>/dev/null || echo host) $(date +%Y-%m-%d)"
-      git -C "$VAULT_PATH" push origin HEAD
+      git -C "$VAULT_PATH" push -u origin HEAD
       echo "pushed"
     fi
   else
