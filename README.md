@@ -49,27 +49,30 @@ The flow of skills at a glance:
 
 ```mermaid
 flowchart TB
-    P["① Claude Code plugins"]
-    N["npx skills add"]
-    H["Written by you"]
-    CX["Codex pure skills"]
-    W["② 💻 Shared library<br/>~/.agents/skills"]
-    C["③ Claude entry<br/>~/.claude/skills"]
-    V["④ ☁️ skills-vault<br/>private git mirror"]
-    M1["💻 Computer"]
-    M2["💻 Another PC / Grok box"]
+    subgraph M1["💻 Every computer (same shape)"]
+        P["Claude Code plugins"]
+        E["~/.claude/skills entities"]
+        N["npx skills add / written by you"]
+        W1["Shared library<br/>~/.agents/skills"]
+        CC["Claude Code"]
+        CX["Codex / Cursor / …"]
+        P -->|"copied in"| W1
+        E -->|"migrate, symlink in place"| W1
+        N --> W1
+        W1 -->|"symlink entries in ~/.claude/skills"| CC
+        W1 -->|"read directly"| CX
+    end
+    subgraph M2["☁️ Grok Bot box"]
+        B["skills installed on the box<br/>(cloned / saved by the Bot)"]
+        W2["Shared library<br/>/home/box/agent-data/workflows"]
+        GB["Grok Bot"]
+        B --> W2
+        W2 -->|"read directly"| GB
+    end
+    V["☁️ vault · private git repo"]
     IV["/init-vault"]
-    P --> W
-    N --> W
-    H --> W
-    CX --> W
-    W -->|"symlink"| C
-    C -->|"entities migrate"| W
-    C --> CC["Claude Code"]
-    W -->|"read directly"| X["Codex / Cursor / …"]
-    W <-.->|"when configured: /sync-skills"| V
-    M1 <-.->|"pull / push"| V
-    M2 <-.->|"pull / push"| V
+    W1 <-.->|"when configured: /sync-skills, both directions"| V
+    W2 <-.->|"when configured: /sync-skills, both directions"| V
     IV -.->|"creates / registers"| V
 ```
 

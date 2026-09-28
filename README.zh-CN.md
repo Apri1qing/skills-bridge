@@ -48,27 +48,30 @@ skill 的流向一图看全：
 
 ```mermaid
 flowchart TB
-    P["① Claude Code 插件"]
-    N["npx skills add"]
-    H["自写 skill"]
-    CX["Codex 纯 skill"]
-    W["② 💻 公共库<br/>~/.agents/skills"]
-    C["③ Claude 入口<br/>~/.claude/skills"]
-    V["④ ☁️ skills-vault<br/>私有 git 镜像"]
-    M1["💻 电脑"]
-    M2["💻 其他电脑 / Grok box"]
+    subgraph M1["💻 每台电脑（结构相同）"]
+        P["Claude Code 插件"]
+        E["~/.claude/skills 实体"]
+        N["npx skills add / 自写"]
+        W1["公共库<br/>~/.agents/skills"]
+        CC["Claude Code"]
+        CX["Codex / Cursor / …"]
+        P -->|"复制"| W1
+        E -->|"迁入，原位换软链"| W1
+        N --> W1
+        W1 -->|"软链入口 ~/.claude/skills"| CC
+        W1 -->|"直接读"| CX
+    end
+    subgraph M2["☁️ Grok Bot box"]
+        B["box 上装的 skill<br/>（clone / Bot 对话存的）"]
+        W2["公共库<br/>/home/box/agent-data/workflows"]
+        GB["Grok Bot"]
+        B --> W2
+        W2 -->|"直接读"| GB
+    end
+    V["☁️ vault · 私有 git 仓"]
     IV["/init-vault"]
-    P --> W
-    N --> W
-    H --> W
-    CX --> W
-    W -->|"软链"| C
-    C -->|"实体迁入"| W
-    C --> CC["Claude Code"]
-    W -->|"直接读"| X["Codex / Cursor / …"]
-    W <-.->|"已配置时：/sync-skills"| V
-    M1 <-.->|"pull / push"| V
-    M2 <-.->|"pull / push"| V
+    W1 <-.->|"已配置时：/sync-skills 双向镜像"| V
+    W2 <-.->|"已配置时：/sync-skills 双向镜像"| V
     IV -.->|"创建 / 登记"| V
 ```
 
