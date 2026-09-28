@@ -54,7 +54,7 @@ npx skills add Apri1qing/skills-bridge -g
 
 ## 给 agent 的话
 
-用户把这段指给你看，就是想让你替他把 skills-bridge 配好。三步。
+你的任务：替用户装好 skills-bridge。三步。
 
 **1. 知道自己在装什么。** skills-bridge 让所有 agent 共用一个 skill 库（`~/.agents/skills`）：给某个 agent 装的 skill 其他 agent 也能用（`/sync-skills` 双向对齐）；`/skills-maintenance` 一键更新一切；可选的私有 git vault 让同一个库跟着用户跨机器走。
 

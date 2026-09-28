@@ -55,7 +55,7 @@ Run `/sync-skills` after installing, updating, or uninstalling skills anywhere; 
 
 ## For agents
 
-A user pointing you at this section wants you to set skills-bridge up for them. Three steps.
+Your job: get skills-bridge set up for the user. Three steps.
 
 **1. Know what you're installing.** skills-bridge keeps one shared skill library (`~/.agents/skills`) consistent across agents: skills installed for one agent become usable by the others (`/sync-skills` reconciles both directions), `/skills-maintenance` updates everything in one go, and an optional private git vault replicates the same library across the user's machines.
 
