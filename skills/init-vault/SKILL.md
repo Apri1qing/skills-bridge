@@ -30,10 +30,10 @@ find "$HOME/.claude/plugins" -path '*skills-bridge*/vault-mirror.sh' 2>/dev/null
 
 **先问用户**（不要擅自选路）：
 
-> 是否已经在其他机器上建过 skills-vault？
+> 是否已经有一个远端 skills-vault 仓库？
 
-- **没建过** → 走「从零建仓」，并问用户要不要顺带建 GitHub 私有仓（`--repo OWNER/skills-vault`；不想要就 `--no-github`）
-- **建过** → 向用户要 vault 仓库地址，走「已有远端仓」
+- **没有** → 走「从零建仓」，并问用户要不要顺带建 GitHub 私有仓（`--repo OWNER/skills-vault`；不想要就 `--no-github`）
+- **有** → 向用户要仓库地址，走「已有远端仓」
 
 执行其一：
 
