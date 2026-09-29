@@ -129,7 +129,7 @@ Update later with `git -C ~/skills-bridge pull && cp -r ~/skills-bridge/skills/*
 
 **3. Ask the user one question: "Mirror this shared library across your machines?"**
 
-- **Yes** → run the `/init-vault` skill. Two cases: no vault yet → it creates one (optionally a private GitHub repo to go with it); a vault already exists → it walks you through cloning it to this machine and registering it (recording the vault path and this machine's skills dir — `~/.agents/skills`, or `/home/box/agent-data/workflows` on a Grok box). Then run `/sync-skills` once to fill or pull the vault.
+- **Yes** → run the `/init-vault` skill. It first asks whether a vault already exists on another machine: none yet → it creates one (optionally a private GitHub repo to go with it); one exists → it asks for the repo URL, clones it to this machine and registers it (recording the vault path and this machine's skills dir — `~/.agents/skills`, or `/home/box/agent-data/workflows` on a Grok box). Then run `/sync-skills` once to fill or pull the vault.
 - **No** → done. Single-machine sync is complete without the vault; nothing to configure.
 
 Close by telling the user the day-to-day in one line: `/sync-skills` after installing or updating skills anywhere, `/skills-maintenance` to update everything.

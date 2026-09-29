@@ -128,7 +128,7 @@ cp -r ~/skills-bridge/skills/* /home/box/agent-data/workflows/
 
 **3. 问用户一个问题：「要把这个公共库镜像到你的多台机器吗？」**
 
-- **要** → 跑 `/init-vault` skill，两种情况：还没有 vault → 它从零创建（可选连 GitHub 私有仓一起建好）；已有 vault → 它引导你把 vault clone 到本机并登记（配置 vault 位置和本机 skill 落点：电脑是 `~/.agents/skills`，Grok box 是 `/home/box/agent-data/workflows`）。然后跑一次 `/sync-skills` 灌仓或拉取。
+- **要** → 跑 `/init-vault` skill。它会先问用户是否已在其他机器上建过 vault：没有 → 从零创建（可选连 GitHub 私有仓一起建好）；已有 → 向用户要仓库地址，clone 到本机并登记（配置 vault 位置和本机 skill 落点：电脑是 `~/.agents/skills`，Grok box 是 `/home/box/agent-data/workflows`）。然后跑一次 `/sync-skills` 灌仓或拉取。
 - **不要** → 到此为止。单机同步不依赖 vault，无需任何配置。
 
 最后用一句话告诉用户日常用法：任何地方装了/更新了 skill 就跑 `/sync-skills`；要一键更新一切就跑 `/skills-maintenance`。
